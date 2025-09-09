@@ -1,0 +1,13 @@
+# app/models/user_token_summary.py
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, func
+from app.database import Base
+
+class UserTokenSummary(Base):
+    __tablename__ = 'user_token_summary'
+
+    summary_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"))
+    draw_id = Column(Integer, ForeignKey("draws.draw_id", ondelete="CASCADE"))
+    total_participant_tokens = Column(Integer, default=0)
+    total_winning_tokens = Column(Integer, default=0)
+    updated_at = Column(DateTime, server_default=func.now())
