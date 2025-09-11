@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from datetime import datetime
 
 class UserBase(BaseModel):
     username: str
@@ -13,7 +14,7 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     user_id: int
-    created_at: Optional[str] = None
+    created_at: datetime
 
     class Config:
         orm_mode = True

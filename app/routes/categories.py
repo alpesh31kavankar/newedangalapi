@@ -25,6 +25,11 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
     return new_category
 
 # Get all categories
+# @router.get("/", response_model=List[CategoryOut])
+# def get_categories(db: Session = Depends(get_db)):
+#     return db.query(models.category.Category).all()
+#     #  return [{"category_id": 1, "category_name": "Mock"}]
+
 @router.get("/", response_model=List[CategoryOut])
 def get_categories(db: Session = Depends(get_db)):
     return db.query(models.category.Category).all()
