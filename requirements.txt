@@ -8,3 +8,4 @@ sqlalchemy
 pydantic==2.10.1
 pydantic-settings==2.10.1
 Pillow
+email-validator
