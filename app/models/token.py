@@ -5,7 +5,7 @@ from ..database import Base
 class Token(Base):
     __tablename__ = "tokens"
 
-    tokens_id = Column(Text, primary_key=True, index=True)
+    token_id = Column(Text, primary_key=True, index=True)
     users_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     question_rounds_id = Column(BigInteger, ForeignKey("question_rounds.id"), nullable=True)
     product_id = Column(BigInteger, ForeignKey("products.id"), nullable=True)

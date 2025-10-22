@@ -1,40 +1,19 @@
-# from pydantic import BaseModel, EmailStr
-# from typing import Optional
-# from datetime import datetime
-
-# class UserBase(BaseModel):
-#     username: str
-#     email: EmailStr
-#     full_name: Optional[str] = None
-#     phone_number: Optional[str] = None
-#     address: Optional[str] = None
-
-# class UserCreate(UserBase):
-#     password: str
-
-# class UserResponse(UserBase):
-#     user_id: int
-#     created_at: datetime
-
-#     class Config:
-#         orm_mode = True
-
 from pydantic import BaseModel, EmailStr
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 
 # Shared fields
 class UserBase(BaseModel):
     username: str
     email: EmailStr
-    gender: Optional[str]
-    birth_date: date
-    pincode: str
-    referral_code: Optional[str]
-    referred_by: Optional[str]
-    mobile_no: Optional[str]
-    profile_image: Optional[str]
-    address: Optional[str]
+    gender: Optional[str] = None
+    birth_date: Optional[date] = None   # 👈 now optional
+    pincode: Optional[str] = None     
+    referral_code: Optional[str] = None
+    referred_by: Optional[str] = None
+    mobile_no: Optional[str] = None       # 👈 default None
+    profile_image: Optional[str] = None   # 👈 default None
+    address: Optional[str] = None         # 👈 default None
 
 # Fields required for creation
 class UserCreate(UserBase):
@@ -44,8 +23,13 @@ class UserCreate(UserBase):
 class UserOut(UserBase):
     id: int
     is_verified: bool
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
+    activation_link: Optional[str] = None  # 👈 add here for testing
 
     class Config:
         orm_mode = True
+
+class UserUpdate(BaseModel):
+    mobile_no: Optional[str] = None
+    address: Optional[str] = None

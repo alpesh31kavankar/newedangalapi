@@ -1,67 +1,9 @@
-# # app/routers/product.py
-# from fastapi import APIRouter, Depends, HTTPException
-# from sqlalchemy.orm import Session
-# from typing import List
-# from app import models, schemas
-# from app.database import get_db
-
-# router = APIRouter(
-#     prefix="/products",
-#     tags=["Products"]
-# )
-
-# # Create product
-# @router.post("/", response_model=schemas.product.ProductOut)
-# def create_product(product: schemas.product.ProductCreate, db: Session = Depends(get_db)):
-#     new_product = models.product.Product(**product.dict())
-#     db.add(new_product)
-#     db.commit()
-#     db.refresh(new_product)
-#     return new_product
-
-# # Get all products
-# @router.get("/", response_model=List[schemas.product.ProductOut])
-# def get_products(db: Session = Depends(get_db)):
-#     return db.query(models.product.Product).all()
-
-# # Get single product
-# @router.get("/{product_id}", response_model=schemas.product.ProductOut)
-# def get_product(product_id: int, db: Session = Depends(get_db)):
-#     product = db.query(models.product.Product).filter(models.product.Product.product_id == product_id).first()
-#     if not product:
-#         raise HTTPException(status_code=404, detail="Product not found")
-#     return product
-
-# # Update product
-# @router.put("/{product_id}", response_model=schemas.product.ProductOut)
-# def update_product(product_id: int, update: schemas.product.ProductUpdate, db: Session = Depends(get_db)):
-#     product = db.query(models.product.Product).filter(models.product.Product.product_id == product_id).first()
-#     if not product:
-#         raise HTTPException(status_code=404, detail="Product not found")
-
-#     for key, value in update.dict(exclude_unset=True).items():
-#         setattr(product, key, value)
-
-#     db.commit()
-#     db.refresh(product)
-#     return product
-
-# # Delete product
-# @router.delete("/{product_id}")
-# def delete_product(product_id: int, db: Session = Depends(get_db)):
-#     product = db.query(models.product.Product).filter(models.product.Product.product_id == product_id).first()
-#     if not product:
-#         raise HTTPException(status_code=404, detail="Product not found")
-
-#     db.delete(product)
-#     db.commit()
-#     return {"detail": "Product deleted successfully"}
-
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from ..database import get_db
 from ..models.product import Product
+from ..models.review import ProductReview
 from ..schemas.product import ProductCreate, ProductOut
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -73,22 +15,76 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
-    return new_product
+    return ProductOut.from_orm(new_product)
 
-# Get all products
+# Get all products with avg_rating & review_count
 @router.get("/", response_model=list[ProductOut])
 def get_products(db: Session = Depends(get_db)):
-    return db.query(Product).all()
+    # Join with reviews to calculate avg_rating and review_count
+    results = (
+        db.query(
+            Product,
+            func.coalesce(func.avg(ProductReview.rating), 0).label("avg_rating"),
+            func.coalesce(func.count(ProductReview.id), 0).label("review_count")
+        )
+        .outerjoin(ProductReview, Product.id == ProductReview.product_id)
+        .group_by(Product.id)
+        .all()
+    )
 
-# Get single product
+    products_list = [
+        ProductOut.from_orm(product).model_copy(update={
+            "avg_rating": float(avg_rating),
+            "review_count": int(review_count)
+        })
+        for product, avg_rating, review_count in results
+    ]
+    return products_list
+
+# Get single product by ID
 @router.get("/{product_id}", response_model=ProductOut)
 def get_product(product_id: int, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
+    result = (
+        db.query(
+            Product,
+            func.coalesce(func.avg(ProductReview.rating), 0).label("avg_rating"),
+            func.coalesce(func.count(ProductReview.id), 0).label("review_count")
+        )
+        .outerjoin(ProductReview, Product.id == ProductReview.product_id)
+        .filter(Product.id == product_id)
+        .group_by(Product.id)
+        .first()
+    )
+
+    if not result:
         raise HTTPException(status_code=404, detail="Product not found")
-    return product
+
+    product, avg_rating, review_count = result
+    return ProductOut.from_orm(product).model_copy(update={
+        "avg_rating": float(avg_rating),
+        "review_count": int(review_count)
+    })
 
 # Get products by category
 @router.get("/category/{category_id}", response_model=list[ProductOut])
 def get_products_by_category(category_id: int, db: Session = Depends(get_db)):
-    return db.query(Product).filter(Product.categories_id == category_id).all()
+    results = (
+        db.query(
+            Product,
+            func.coalesce(func.avg(ProductReview.rating), 0).label("avg_rating"),
+            func.coalesce(func.count(ProductReview.id), 0).label("review_count")
+        )
+        .outerjoin(ProductReview, Product.id == ProductReview.product_id)
+        .filter(Product.categories_id == category_id)
+        .group_by(Product.id)
+        .all()
+    )
+
+    products_list = [
+        ProductOut.from_orm(product).model_copy(update={
+            "avg_rating": float(avg_rating),
+            "review_count": int(review_count)
+        })
+        for product, avg_rating, review_count in results
+    ]
+    return products_list

@@ -1,22 +1,8 @@
-# from sqlalchemy import Column, Integer, String, Text, DateTime, func
-# from app.database import Base
-
-# class User(Base):
-#     __tablename__ = "users"
-
-#     user_id = Column(Integer, primary_key=True, index=True)
-#     username = Column(String(100), unique=True, index=True, nullable=False)
-#     email = Column(String(200), unique=True, index=True, nullable=False)
-#     password_hash = Column(Text, nullable=False)
-#     full_name = Column(String(200), nullable=True)
-#     phone_number = Column(String(20), nullable=True)
-#     address = Column(Text, nullable=True)
-#     created_at = Column(DateTime(timezone=False), server_default=func.now())
-
 
 from sqlalchemy import Column, BigInteger, String, Boolean, Date, Text, TIMESTAMP
 from sqlalchemy.sql import func
 from ..database import Base
+from sqlalchemy.orm import relationship
 
 class User(Base):
     __tablename__ = "users"
@@ -33,6 +19,14 @@ class User(Base):
     profile_image = Column(Text, nullable=True)
     address = Column(Text, nullable=True)
     mobile_no = Column(String(15), unique=True, nullable=True)
+        # 🔑 Email verification
     is_verified = Column(Boolean, default=False)
+    # activation_token = Column(Text, nullable=True, index=True)
+    # activation_token_expires_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")
+        # ✅ Add this for Leaderboard
+    leaderboards = relationship("Leaderboard", back_populates="user", cascade="all, delete-orphan")
