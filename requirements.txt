@@ -9,6 +9,13 @@ pydantic==2.10.1
 pydantic-settings==2.10.1
 Pillow
 email-validator
-passlib[bcrypt]
+
+# Password hashing
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.1,<5.0.0
+
+# JWT authentication
 python-jose[cryptography]
+
+# Timezone support
 pytz
