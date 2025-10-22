@@ -10,3 +10,4 @@ pydantic-settings==2.10.1
 Pillow
 email-validator
 passlib[bcrypt]
+python-jose[cryptography]
