@@ -5,6 +5,5 @@ requests
 psycopg2-binary
 apscheduler
 sqlalchemy
-pydantic-settings
-pydantic==2.5.1
-
+pydantic==2.10.1
+pydantic-settings==2.10.1
