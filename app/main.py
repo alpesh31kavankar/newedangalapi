@@ -5,6 +5,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import Base, engine, get_db
 from fastapi.staticfiles import StaticFiles
 import os
+import pprint
+from fastapi.routing import APIRoute
+routes_info = []
 
 # ------------------------------
 # Import all models so SQLAlchemy knows about tables and foreign keys
@@ -99,7 +102,11 @@ app.include_router(reward_claim.router)
 app.include_router(review.router)
 
 print(app.routes)
+for route in app.routes:
+    if isinstance(route, APIRoute):  # only real HTTP routes, no mounts
+        routes_info.append((route.path, route.methods))
 
+pprint.pprint(routes_info)
 # ------------------------------
 # Scheduler setup for cron job
 # ------------------------------

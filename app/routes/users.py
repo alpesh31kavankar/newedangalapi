@@ -71,39 +71,7 @@ def get_my_profile(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.post("/{user_id}/upload-profile-image")
-def upload_profile_image(
-    user_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Only allow image files
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Invalid file type")
-
-    # Generate unique filename
-    ext = file.filename.split(".")[-1]
-    filename = f"user_{user_id}_{int(datetime.utcnow().timestamp())}.{ext}"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-
-    # Resize image
-    try:
-        image = Image.open(file.file)
-        image.thumbnail((400, 400))  # resize max 400x400
-        image.save(filepath)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image processing error: {str(e)}")
-
-    # Update user in DB
-    user.profile_image = filename
-    db.commit()
-    db.refresh(user)
-
-    return {"filename": filename, "message": "Profile image uploaded successfully"}    
+ 
 # ---------------- Referral Validation ---------------- #
 
 @router.get("/validate-referral/{code}")
@@ -217,7 +185,39 @@ def create_user(user: UserCreate, background_tasks: BackgroundTasks, db: Session
 
 # ---------------- Activate Account ---------------- #
 
+@router.post("/{user_id}/upload-profile-image")
+def upload_profile_image(
+    user_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
+    # Only allow image files
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    # Generate unique filename
+    ext = file.filename.split(".")[-1]
+    filename = f"user_{user_id}_{int(datetime.utcnow().timestamp())}.{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    # Resize image
+    try:
+        image = Image.open(file.file)
+        image.thumbnail((400, 400))  # resize max 400x400
+        image.save(filepath)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image processing error: {str(e)}")
+
+    # Update user in DB
+    user.profile_image = filename
+    db.commit()
+    db.refresh(user)
+
+    return {"filename": filename, "message": "Profile image uploaded successfully"}   
 
 
 
