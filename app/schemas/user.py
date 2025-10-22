@@ -17,7 +17,8 @@ class UserBase(BaseModel):
 
 # Fields required for creation
 class UserCreate(UserBase):
-    password: str
+    # password: str
+    password: constr(min_length=8, max_length=72)
 
 # Fields returned via API
 class UserOut(UserBase):
