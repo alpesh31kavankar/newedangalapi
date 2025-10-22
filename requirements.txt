@@ -1,5 +1,5 @@
 fastapi
 uvicorn[standard]
-python-multipart   # if you accept file uploads
-requests           # if your app makes HTTP requests
-psycopg2-binary    # if you use PostgreSQL
+python-multipart
+requests
+psycopg2-binary
