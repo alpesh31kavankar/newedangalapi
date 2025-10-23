@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from ..database import get_db
 from ..models.user import User
+from app.models.admin import AdminRegistration
 from ..services.jwt import create_access_token, verify_token
 from typing import Optional
 from jose import JWTError
