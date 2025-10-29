@@ -19,3 +19,9 @@ python-jose[cryptography]
 
 # Timezone support
 pytz
+
+# ✅ Added for email TLS compatibility (new)
+secure-smtplib
+
+# ✅ Optional: recommended for production server stability (new)
+gunicorn
