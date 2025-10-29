@@ -19,7 +19,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not bcrypt.verify(form_data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Account not verified")
 

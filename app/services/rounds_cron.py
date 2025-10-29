@@ -10,8 +10,8 @@ from ..models.question_round import QuestionRound
 import pytz
 
 # Active hours: only generate rounds between 8 AM and 10 PM
-ACTIVE_START_HOUR = 11
-ACTIVE_END_HOUR = 12
+ACTIVE_START_HOUR = 10
+ACTIVE_END_HOUR = 17
 
 def generate_question_rounds():
     db: Session = SessionLocal()
