@@ -28,7 +28,7 @@ def send_otp_email(to_email: str, otp_code: str, username: str):
     If you did not request this, please ignore this email.
 
     Regards,
-    Phoenoix AI Team
+    Edangal.com
     """
     send_email(to_email, "Password Reset OTP", body)
 
