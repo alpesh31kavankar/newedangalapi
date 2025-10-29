@@ -166,7 +166,7 @@ def create_user(user: UserCreate, background_tasks: BackgroundTasks, db: Session
     db.commit()
 
     # Send activation email
-    activation_link = f"http://localhost:4200/basic/activate?token={email_token}"
+    activation_link = f"https://test.elpisglobalservice.com/#/basic/activate?token={email_token}"
     background_tasks.add_task(send_activation_email, db_user.email, activation_link)
 
     # Return user

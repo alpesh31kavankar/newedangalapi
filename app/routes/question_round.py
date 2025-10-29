@@ -150,15 +150,158 @@ def get_question_round(round_id: int, db: Session = Depends(get_db)):
         } if product2 else {},
     }
 
+# @router.get("/all-rounds")
+# def get_all_rounds(
+#     db: Session = Depends(get_db),
+#     current_user: User = Depends(get_current_user)
+# ):
+#     # Fetch all rounds (latest first)
+#     rounds = db.query(QuestionRound).order_by(QuestionRound.release_time.desc()).all()
+#     if not rounds:
+#         raise HTTPException(status_code=404, detail="No rounds found")
+
+#     result = []
+
+#     for r in rounds:
+#         category = db.query(Category).filter(Category.id == r.categories_id).first()
+#         question = db.query(Question).filter(Question.id == r.questions_id).first()
+#         product1 = db.query(Product).filter(Product.id == r.product1_id).first()
+#         product2 = db.query(Product).filter(Product.id == r.product2_id).first()
+
+#         # Vote counts for each product
+#         votes_product1 = db.query(Vote).filter(
+#             Vote.question_rounds_id == r.id,
+#             Vote.products_id == r.product1_id
+#         ).count()
+#         votes_product2 = db.query(Vote).filter(
+#             Vote.question_rounds_id == r.id,
+#             Vote.products_id == r.product2_id
+#         ).count()
+
+#         # Current user vote
+#         user_vote = db.query(Vote).filter(
+#             Vote.question_rounds_id == r.id,
+#             Vote.users_id == current_user.id
+#         ).first()
+#         user_voted_product = None
+#         if user_vote:
+#             voted_product = db.query(Product).filter(Product.id == user_vote.products_id).first()
+#             if voted_product:
+#                 user_voted_product = {
+#                     "id": voted_product.id,
+#                     "name": voted_product.name,
+#                     "image_url": voted_product.image_url
+#                 }
+
+#         # Check if current user won
+#         win_token = db.query(Token).filter(
+#             Token.users_id == current_user.id,
+#             Token.question_rounds_id == r.id,
+#             Token.token_id.like("W%")
+#         ).first()
+#         user_win = None
+#         if win_token:
+#             winning_product = db.query(Product).filter(Product.id == win_token.product_id).first()
+#             if winning_product:
+#                 user_win = {
+#                     "id": winning_product.id,
+#                     "product_name": winning_product.name,
+#                     "product_image": winning_product.image_url
+#                 }
+
+#         # Determine winner side if round is locked
+#         winning_side = None
+#         if r.is_locked:
+#             if votes_product1 > votes_product2:
+#                 winning_side = "product1"
+#             elif votes_product2 > votes_product1:
+#                 winning_side = "product2"
+#             else:
+#                 winning_side = "tie"
+
+#         # --------------------------
+#         # Collect all participants from votes
+#         # --------------------------
+#         participants = []
+#         votes = db.query(Vote).filter(Vote.question_rounds_id == r.id).all()
+#         for v in votes:
+#             user = db.query(User).filter(User.id == v.users_id).first()
+#             if user:
+#                 avatar_url = (
+#                     f"http://127.0.0.1:8000/uploads/profile_images/{user.profile_image}"
+#                     if user.profile_image else
+#                     "http://127.0.0.1:8000/assets/default_avatar.png"
+#                 )
+#                 participants.append({
+#                     "id": user.id,
+#                     "name": user.username,
+#                     "avatar": avatar_url,
+#                     "votedTo": v.products_id
+#                 })
+
+#         # --------------------------
+#         # Append round info
+#         # --------------------------
+#         result.append({
+#             "round_id": r.id,
+#             "release_time": r.release_time,
+#             "is_locked": r.is_locked,
+#             "category_name": category.category_name if category else "",
+#             "category_image": category.image_url if category else "",
+#             "question_text": question.question_text if question else "",
+#             "product1": {
+#                 "id": product1.id if product1 else None,
+#                 "name": product1.name if product1 else "",
+#                 "image_url": product1.image_url if product1 else "",
+#                 "votes": votes_product1
+#             },
+#             "product2": {
+#                 "id": product2.id if product2 else None,
+#                 "name": product2.name if product2 else "",
+#                 "image_url": product2.image_url if product2 else "",
+#                 "votes": votes_product2
+#             },
+#             "total_votes": votes_product1 + votes_product2,
+#             "max_votes": r.max_votes,
+#             "user_voted_product": user_voted_product,
+#             "user_win": user_win,
+#             "winning_side": winning_side,
+#             "participants": participants  # ✅ all participants with avatar and votedTo
+#         })
+
+#     return result
+
 @router.get("/all-rounds")
 def get_all_rounds(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100)
 ):
-    # Fetch all rounds (latest first)
-    rounds = db.query(QuestionRound).order_by(QuestionRound.release_time.desc()).all()
+    """
+    Returns paginated question rounds (latest first).
+    Example: /all-rounds?page=2&page_size=10
+    """
+
+    # Total number of rounds
+    total_rounds = db.query(QuestionRound).count()
+
+    # Fetch rounds (latest first)
+    rounds = (
+        db.query(QuestionRound)
+        .order_by(QuestionRound.release_time.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
     if not rounds:
-        raise HTTPException(status_code=404, detail="No rounds found")
+        return {
+            "total": total_rounds,
+            "page": page,
+            "page_size": page_size,
+            "rounds": []
+        }
 
     result = []
 
@@ -168,7 +311,7 @@ def get_all_rounds(
         product1 = db.query(Product).filter(Product.id == r.product1_id).first()
         product2 = db.query(Product).filter(Product.id == r.product2_id).first()
 
-        # Vote counts for each product
+        # Votes
         votes_product1 = db.query(Vote).filter(
             Vote.question_rounds_id == r.id,
             Vote.products_id == r.product1_id
@@ -178,7 +321,7 @@ def get_all_rounds(
             Vote.products_id == r.product2_id
         ).count()
 
-        # Current user vote
+        # User vote
         user_vote = db.query(Vote).filter(
             Vote.question_rounds_id == r.id,
             Vote.users_id == current_user.id
@@ -193,23 +336,7 @@ def get_all_rounds(
                     "image_url": voted_product.image_url
                 }
 
-        # Check if current user won
-        win_token = db.query(Token).filter(
-            Token.users_id == current_user.id,
-            Token.question_rounds_id == r.id,
-            Token.token_id.like("W%")
-        ).first()
-        user_win = None
-        if win_token:
-            winning_product = db.query(Product).filter(Product.id == win_token.product_id).first()
-            if winning_product:
-                user_win = {
-                    "id": winning_product.id,
-                    "product_name": winning_product.name,
-                    "product_image": winning_product.image_url
-                }
-
-        # Determine winner side if round is locked
+        # Determine winning side
         winning_side = None
         if r.is_locked:
             if votes_product1 > votes_product2:
@@ -219,11 +346,9 @@ def get_all_rounds(
             else:
                 winning_side = "tie"
 
-        # --------------------------
-        # Collect all participants from votes
-        # --------------------------
+        # Participants (optional light version)
+        votes = db.query(Vote).filter(Vote.question_rounds_id == r.id).limit(10).all()
         participants = []
-        votes = db.query(Vote).filter(Vote.question_rounds_id == r.id).all()
         for v in votes:
             user = db.query(User).filter(User.id == v.users_id).first()
             if user:
@@ -239,15 +364,11 @@ def get_all_rounds(
                     "votedTo": v.products_id
                 })
 
-        # --------------------------
-        # Append round info
-        # --------------------------
         result.append({
             "round_id": r.id,
             "release_time": r.release_time,
             "is_locked": r.is_locked,
             "category_name": category.category_name if category else "",
-            "category_image": category.image_url if category else "",
             "question_text": question.question_text if question else "",
             "product1": {
                 "id": product1.id if product1 else None,
@@ -264,9 +385,13 @@ def get_all_rounds(
             "total_votes": votes_product1 + votes_product2,
             "max_votes": r.max_votes,
             "user_voted_product": user_voted_product,
-            "user_win": user_win,
             "winning_side": winning_side,
-            "participants": participants  # ✅ all participants with avatar and votedTo
+            "participants": participants
         })
 
-    return result
+    return {
+        "total": total_rounds,
+        "page": page,
+        "page_size": page_size,
+        "rounds": result
+    }
