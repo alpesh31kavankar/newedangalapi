@@ -126,12 +126,12 @@ def startup_event():
     scheduler.add_job(generate_question_rounds, "interval", minutes=1)
     scheduler.add_job(finalize_rounds, "interval", minutes=1)
       # new job: run daily lottery at 20:00 (8 PM server time)
-    scheduler.add_job(perform_daily_lottery, "cron", hour=18, minute=11)
+    scheduler.add_job(perform_daily_lottery, "cron", hour=20, minute=11)
     scheduler.add_job(
     perform_daily_participant_lottery,
     trigger="cron",
-    hour=18,
-    minute=16,
+    hour=20,
+    minute=11,
     id="participant_lottery_cron",
     replace_existing=True,
 )
