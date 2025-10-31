@@ -271,3 +271,142 @@ def get_all_rounds(
 
     return result
 
+# @router.get("/all-rounds")
+# def get_all_rounds(
+#     db: Session = Depends(get_db),
+#     current_user: User = Depends(get_current_user),
+#     page: int = Query(1, ge=1),
+#     limit: int = Query(20, le=100)
+# ):
+#     print(f"🔹 /all-rounds called with page={page}, limit={limit}, user={current_user.id}")
+
+#     # 1️⃣ Offset for pagination
+#     offset = (page - 1) * limit
+
+#     # 2️⃣ Query total count
+#     total_rounds = db.query(QuestionRound).filter(QuestionRound.is_locked == True).count()
+
+#     # 3️⃣ Fetch paginated rounds (latest first)
+#     rounds = (
+#         db.query(QuestionRound)
+#         .filter(QuestionRound.is_locked == True)
+#         .order_by(QuestionRound.release_time.desc())  # newest first
+#         .offset(offset)
+#         .limit(limit)
+#         .all()
+#     )
+
+#     if not rounds:
+#         raise HTTPException(status_code=404, detail="No rounds found")
+
+#     result = []
+
+#     for r in rounds:
+#         category = db.query(Category).filter(Category.id == r.categories_id).first()
+#         question = db.query(Question).filter(Question.id == r.questions_id).first()
+#         product1 = db.query(Product).filter(Product.id == r.product1_id).first()
+#         product2 = db.query(Product).filter(Product.id == r.product2_id).first()
+
+#         # Votes count
+#         votes_product1 = db.query(Vote).filter(
+#             Vote.question_rounds_id == r.id,
+#             Vote.products_id == r.product1_id
+#         ).count()
+#         votes_product2 = db.query(Vote).filter(
+#             Vote.question_rounds_id == r.id,
+#             Vote.products_id == r.product2_id
+#         ).count()
+
+#         # User's vote (simplified)
+#         user_vote = db.query(Vote).filter(
+#             Vote.question_rounds_id == r.id,
+#             Vote.users_id == current_user.id
+#         ).first()
+#         user_voted_product = None
+#         if user_vote:
+#             voted_product = db.query(Product).filter(Product.id == user_vote.products_id).first()
+#             if voted_product:
+#                 user_voted_product = {
+#                     "id": voted_product.id,
+#                     "name": voted_product.name,
+#                     "image_url": voted_product.image_url
+#                 }
+
+#         # Check if user won
+#         win_token = db.query(Token).filter(
+#             Token.users_id == current_user.id,
+#             Token.question_rounds_id == r.id,
+#             Token.token_id.like("W%")
+#         ).first()
+#         user_win = None
+#         if win_token:
+#             winning_product = db.query(Product).filter(Product.id == win_token.product_id).first()
+#             if winning_product:
+#                 user_win = {
+#                     "id": winning_product.id,
+#                     "product_name": winning_product.name,
+#                     "product_image": winning_product.image_url
+#                 }
+
+#         # Determine winner
+#         winning_side = None
+#         if r.is_locked:
+#             if votes_product1 > votes_product2:
+#                 winning_side = "product1"
+#             elif votes_product2 > votes_product1:
+#                 winning_side = "product2"
+#             else:
+#                 winning_side = "tie"
+
+#         # Collect participants (optional — could be lazy loaded later)
+#         participants = []
+#         votes = db.query(Vote).filter(Vote.question_rounds_id == r.id).limit(30).all()
+#         for v in votes:
+#             user = db.query(User).filter(User.id == v.users_id).first()
+#             if user:
+#                 avatar_url = (
+#                     f"http://127.0.0.1:8000/uploads/profile_images/{user.profile_image}"
+#                     if user.profile_image else
+#                     "http://127.0.0.1:8000/assets/default_avatar.png"
+#                 )
+#                 participants.append({
+#                     "id": user.id,
+#                     "name": user.username,
+#                     "avatar": avatar_url,
+#                     "votedTo": v.products_id
+#                 })
+
+#         result.append({
+#             "round_id": r.id,
+#             "release_time": r.release_time,
+#             "is_locked": r.is_locked,
+#             "category_name": category.category_name if category else "",
+#             "category_image": category.image_url if category else "",
+#             "question_text": question.question_text if question else "",
+#             "product1": {
+#                 "id": product1.id if product1 else None,
+#                 "name": product1.name if product1 else "",
+#                 "image_url": product1.image_url if product1 else "",
+#                 "votes": votes_product1
+#             },
+#             "product2": {
+#                 "id": product2.id if product2 else None,
+#                 "name": product2.name if product2 else "",
+#                 "image_url": product2.image_url if product2 else "",
+#                 "votes": votes_product2
+#             },
+#             "total_votes": votes_product1 + votes_product2,
+#             "max_votes": r.max_votes,
+#             "user_voted_product": user_voted_product,
+#             "user_win": user_win,
+#             "winning_side": winning_side,
+#             "participants": participants
+#         })
+
+#     # 4️⃣ Return paginated response
+#     return {
+#         "page": page,
+#         "limit": limit,
+#         "total": total_rounds,
+#         "rounds": result
+#     }

@@ -166,7 +166,7 @@ def create_user(user: UserCreate, background_tasks: BackgroundTasks, db: Session
     db.commit()
 
     # Send activation email
-    activation_link = f"https://test.elpisglobalservice.com/#/basic/activate?token={email_token}"
+    activation_link = f"https://www.edangal.com/#/basic/activate?token={email_token}"
     background_tasks.add_task(send_activation_email, db_user.email, activation_link)
 
     # Return user
@@ -246,6 +246,52 @@ def activate_user(token: str, db: Session = Depends(get_db)):
 def my_referral_code(current_user: User = Depends(get_current_user)):
     return {"referral_code": current_user.referral_code}
 
+# @router.get("/my-referrals-detail")
+# def get_my_referrals_detail(
+#     current_user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Show:
+#     1. List of users who used my referral code
+#     2. List of referral_bonus tokens I have
+#     """
+#     # Users who used my referral code
+#     referrals = db.query(User).filter(User.referred_by == current_user.referral_code).order_by(User.created_at.desc()).all()
+#     referral_users = [
+#         {
+#             "user_id": u.id,
+#             "username": u.username,
+#             "profile_image": u.profile_image,
+#             "created_at": u.created_at
+#         }
+#         for u in referrals
+#     ]
+
+#      # Get today's date in YYYYMMDD format
+#     today_str = datetime.now().strftime("%Y%m%d")
+#     prefix = f"W{today_str}"
+
+#     # Tokens with source 'referral_bonus' and today's date in token_id
+#     tokens = db.query(Token).filter(
+#         Token.users_id == current_user.id,
+#         Token.source == "referral_bonus",
+#         Token.token_id.like(f"{prefix}%")
+#     ).order_by(Token.created_at.asc()).all()
+#     referral_tokens = [
+#         {
+#             "token_id": t.token_id,
+#             "created_at": t.created_at,
+#             "source": t.source
+#         }
+#         for t in tokens
+#     ]
+
+#     return {
+#         "referral_users": referral_users,
+#         "referral_tokens": referral_tokens,
+#     }
+
 @router.get("/my-referrals-detail")
 def get_my_referrals_detail(
     current_user: User = Depends(get_current_user),
@@ -253,30 +299,47 @@ def get_my_referrals_detail(
 ):
     """
     Show:
-    1. List of users who used my referral code
+    1. List of users who used my referral code (with avatar)
     2. List of referral_bonus tokens I have
     """
-    # Users who used my referral code
-    referrals = db.query(User).filter(User.referred_by == current_user.referral_code).order_by(User.created_at.desc()).all()
+
+    BASE_URL = "https://newedangalapi.onrender.com/uploads/profile_images/"
+
+    # 🔹 Get users who used current_user's referral code
+    referrals = (
+        db.query(User)
+        .filter(User.referred_by == current_user.referral_code)
+        .order_by(User.created_at.desc())
+        .all()
+    )
+
+    # 🔹 Build user list with avatar
     referral_users = [
         {
             "user_id": u.id,
             "username": u.username,
+            "avatar": f"{BASE_URL}{u.profile_image}?t={int(datetime.now().timestamp())}"
+            if u.profile_image else f"{BASE_URL}default-avatar.png",
             "created_at": u.created_at
         }
         for u in referrals
     ]
 
-     # Get today's date in YYYYMMDD format
+    # 🔹 Get today's referral bonus tokens
     today_str = datetime.now().strftime("%Y%m%d")
     prefix = f"W{today_str}"
 
-    # Tokens with source 'referral_bonus' and today's date in token_id
-    tokens = db.query(Token).filter(
-        Token.users_id == current_user.id,
-        Token.source == "referral_bonus",
-        Token.token_id.like(f"{prefix}%")
-    ).order_by(Token.created_at.asc()).all()
+    tokens = (
+        db.query(Token)
+        .filter(
+            Token.users_id == current_user.id,
+            Token.source == "referral_bonus",
+            Token.token_id.like(f"{prefix}%")
+        )
+        .order_by(Token.created_at.asc())
+        .all()
+    )
+
     referral_tokens = [
         {
             "token_id": t.token_id,
@@ -290,6 +353,7 @@ def get_my_referrals_detail(
         "referral_users": referral_users,
         "referral_tokens": referral_tokens,
     }
+
 
 @router.get("/missed-tokens")
 def get_missed_tokens(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

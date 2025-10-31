@@ -18,6 +18,10 @@ from app.models.question import Question
 from app.models.question_round import QuestionRound
 from app.models.email_verification import EmailVerification
 
+from app.models.randamqty import RandamQty
+from app.models.daily_question import DailyQuestion
+from app.models.daily_question_answer import DailyQuestionAnswer
+
 # ------------------------------
 # Import routers
 # ------------------------------
@@ -33,7 +37,7 @@ from app.routes import review
 
 
 from app.services.leaderboard_rank_updater import start_leaderboard_scheduler
-from app.routes import results
+from app.routes import results,randamqty,daily_question,daily_question_answer
 # from app.routes import auth
 # from app.routes import tokens
 # ------------------------------
@@ -100,6 +104,10 @@ app.include_router(spin_router)
 app.include_router(lottery_result.router)
 app.include_router(reward_claim.router)
 app.include_router(review.router)
+
+app.include_router(randamqty.router)
+app.include_router(daily_question.router)
+app.include_router(daily_question_answer.router)
 
 print(app.routes)
 for route in app.routes:

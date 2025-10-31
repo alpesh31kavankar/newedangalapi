@@ -30,3 +30,4 @@ class User(Base):
     verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")
         # ✅ Add this for Leaderboard
     leaderboards = relationship("Leaderboard", back_populates="user", cascade="all, delete-orphan")
+    reviews = relationship("ProductReview", back_populates="user")
