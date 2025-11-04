@@ -25,3 +25,5 @@ secure-smtplib
 
 # ✅ Optional: recommended for production server stability (new)
 gunicorn
+
+google-auth==2.34.0

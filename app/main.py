@@ -32,11 +32,13 @@ from app.routes.spin_routes import router as spin_router
 from app.routes import lottery_result
 from app.routes import reward_claim
 from app.routes import review
+from app.routes import ticket_report_routes
 
 
 
 
 from app.services.leaderboard_rank_updater import start_leaderboard_scheduler
+from app.services.daily_question_cron import pick_daily_question
 from app.routes import results,randamqty,daily_question,daily_question_answer
 # from app.routes import auth
 # from app.routes import tokens
@@ -108,6 +110,7 @@ app.include_router(review.router)
 app.include_router(randamqty.router)
 app.include_router(daily_question.router)
 app.include_router(daily_question_answer.router)
+app.include_router(ticket_report_routes.router)
 
 print(app.routes)
 for route in app.routes:
@@ -127,6 +130,7 @@ def startup_event():
     scheduler.add_job(finalize_rounds, "interval", minutes=1)
       # new job: run daily lottery at 20:00 (8 PM server time)
     scheduler.add_job(perform_daily_lottery, "cron", hour=20, minute=11)
+    scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18)
     scheduler.add_job(
     perform_daily_participant_lottery,
     trigger="cron",

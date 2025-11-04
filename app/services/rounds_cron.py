@@ -13,6 +13,9 @@ import pytz
 ACTIVE_START_HOUR = 10
 ACTIVE_END_HOUR = 17
 
+# ACTIVE_START_HOUR = 8
+# ACTIVE_END_HOUR = 9
+
 def generate_question_rounds():
     db: Session = SessionLocal()
     created_rounds = []
