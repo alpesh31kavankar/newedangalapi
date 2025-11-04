@@ -66,7 +66,8 @@ app.mount("/uploads/profile_images", StaticFiles(directory=UPLOAD_DIR), name="pr
 # CORS configuration
 origins = [
     "http://localhost:4200",
-    "http://127.0.0.1:4200"
+    "http://127.0.0.1:4200",
+    "https://edangal.com"  
 ]
 
 # app.add_middleware(
@@ -78,7 +79,7 @@ origins = [
 # )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=origins,  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
