@@ -67,7 +67,8 @@ app.mount("/uploads/profile_images", StaticFiles(directory=UPLOAD_DIR), name="pr
 origins = [
     "http://localhost:4200",
     "http://127.0.0.1:4200",
-    "https://edangal.com"  
+    "https://edangal.com",
+    "https://www.edangal.com"  
 ]
 
 # app.add_middleware(
