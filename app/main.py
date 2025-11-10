@@ -8,6 +8,8 @@ import os
 import pprint
 from fastapi.routing import APIRoute
 routes_info = []
+import pytz  # Import pytz for time zone management
+from datetime import datetime, timezone
 
 # ------------------------------
 # Import all models so SQLAlchemy knows about tables and foreign keys
@@ -128,6 +130,8 @@ pprint.pprint(routes_info)
 # Scheduler setup for cron job
 # ------------------------------
 scheduler = BackgroundScheduler()
+# Define IST timezone
+ist = pytz.timezone("Asia/Kolkata")
 
 @app.on_event("startup")
 def startup_event():
@@ -135,15 +139,16 @@ def startup_event():
     scheduler.add_job(generate_question_rounds, "interval", minutes=1)
     scheduler.add_job(finalize_rounds, "interval", minutes=1)
       # new job: run daily lottery at 20:00 (8 PM server time)
-    scheduler.add_job(perform_daily_lottery, "cron", hour=20, minute=11)
-    scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18)
+    scheduler.add_job(perform_daily_lottery, "cron", hour=21, minute=31, timezone=ist)
+    scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18, timezone=ist)
     scheduler.add_job(
     perform_daily_participant_lottery,
     trigger="cron",
-    hour=20,
-    minute=11,
+    hour=21,
+    minute=31,
     id="participant_lottery_cron",
     replace_existing=True,
+    timezone=ist
 )
     start_leaderboard_scheduler()
     scheduler.start()
