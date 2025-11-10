@@ -1,25 +1,29 @@
-# app/routers/lottery_result.py
 from datetime import datetime, time, timedelta
 from fastapi import APIRouter
 from sqlalchemy import text
 from ..database import SessionLocal
+import pytz  # ✅ To ensure we use Indian Standard Time (IST)
 
 router = APIRouter(prefix="/lottery", tags=["Lottery Results"])
 
 @router.get("/current-winners")
 def get_current_lottery_winners():
     db = SessionLocal()
-    now = datetime.now()
-    today = now.date()
-    draw_time = time(20, 30)  # 8:30 PM
 
-    # 🕒 If time is before 8:30 PM, show yesterday’s winner
-    if now.time() < draw_time:
+    # ✅ Always use IST timezone to avoid server UTC mismatch
+    ist = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(ist)
+    today = now.date()
+
+    show_time = time(20, 0)  # ✅ Show result after 8:00 PM next day
+
+    # 🕒 Before 8:00 PM → show yesterday’s result
+    if now.time() < show_time:
         show_date = today - timedelta(days=1)
     else:
         show_date = today
 
-    # 🟢 Participant winner (by created_at::date)
+    # 🟢 Participant winner (based on created_at::date)
     participant = db.execute(text("""
         SELECT w.*, u.username, u.profile_image
         FROM participant_lottery_winner w
@@ -29,7 +33,7 @@ def get_current_lottery_winners():
         LIMIT 1
     """), {"show_date": show_date}).mappings().first()
 
-    # 🟢 Winning token winner (by created_at::date)
+    # 🟢 Winning token winner (based on created_at::date)
     winning = db.execute(text("""
         SELECT w.*, u.username, u.profile_image
         FROM lottery_winner w

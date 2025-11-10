@@ -1,8 +1,8 @@
-# app/services/lottery_cron.py
-from datetime import date
+from datetime import date, datetime
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
+import pytz  # Import pytz to handle time zones
 
 def perform_daily_lottery():
     """
@@ -18,6 +18,11 @@ def perform_daily_lottery():
 
     db: Session = SessionLocal()
     try:
+        db.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
+        # Define IST timezone
+        ist = pytz.timezone("Asia/Kolkata")
+        now_ist = datetime.now(ist)  # Get the current time in IST
+
         # 0) Fetch active gift id
         gift_id = db.execute(
             text("SELECT id FROM gifts WHERE status = 'active' LIMIT 1")
@@ -50,36 +55,36 @@ def perform_daily_lottery():
         if lottery_id is None:
             raise RuntimeError("Could not create or find today's lottery")
 
-        # 2) Insert eligible tokens into lottery_entries
+        # 2) Insert eligible tokens into lottery_entries with correct time in IST
         insert_entries_sql = text("""
             INSERT INTO lottery_entries (lotteries_id, token_id, users_id, created_at)
-            SELECT :lottery_id, t.token_id, t.users_id, now()
+            SELECT :lottery_id, t.token_id, t.users_id, :now_ist
             FROM tokens t
             WHERE t.source IN ('C_referral','claim', 'C_referral_bonus', 'daily_lucky_draw')
               AND (t.created_at::date = :today)
             ON CONFLICT (lotteries_id, token_id) DO NOTHING
         """)
-        db.execute(insert_entries_sql, {"lottery_id": lottery_id, "today": today})
+        db.execute(insert_entries_sql, {"lottery_id": lottery_id, "today": today, "now_ist": now_ist})
         print("[Lottery Cron] Inserted eligible tokens into lottery_entries (if any)")
 
         # 3) Pick one random winner for this lottery
         insert_winner_sql = text("""
             INSERT INTO lottery_winner (lotteries_id, users_id, token_id, created_at)
-            SELECT le.lotteries_id, le.users_id, le.token_id, now()
+            SELECT le.lotteries_id, le.users_id, le.token_id, :now_ist
             FROM lottery_entries le
             WHERE le.lotteries_id = :lottery_id
             ORDER BY RANDOM()
             LIMIT 1
             ON CONFLICT (lotteries_id) DO NOTHING
         """)
-        db.execute(insert_winner_sql, {"lottery_id": lottery_id})
+        db.execute(insert_winner_sql, {"lottery_id": lottery_id, "now_ist": now_ist})
 
         # 4) Mark lottery as completed
         db.execute(text("""
             UPDATE lotteries
-            SET is_completed = TRUE, updated_at = now()
+            SET is_completed = TRUE, updated_at = :now_ist
             WHERE id = :lottery_id
-        """), {"lottery_id": lottery_id})
+        """), {"lottery_id": lottery_id, "now_ist": now_ist})
 
         db.commit()
         print(f"[Lottery Cron] Completed lottery processing for id={lottery_id}")

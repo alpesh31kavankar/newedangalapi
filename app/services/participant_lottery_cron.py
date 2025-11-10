@@ -1,9 +1,8 @@
-# app/services/participant_lottery_cron.py
-from datetime import date
+from datetime import date, datetime
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
-
+import pytz  # Import pytz to handle time zones
 
 def perform_daily_participant_lottery():
     """
@@ -21,6 +20,11 @@ def perform_daily_participant_lottery():
 
     db: Session = SessionLocal()
     try:
+        db.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
+        # Define IST timezone
+        ist = pytz.timezone("Asia/Kolkata")
+        now_ist = datetime.now(ist)  # Get the current time in IST
+
         # 1️⃣ Fetch active participant gift
         p_gift_id = db.execute(
             text("SELECT id FROM p_gifts WHERE status = 'active' LIMIT 1")
@@ -60,34 +64,34 @@ def perform_daily_participant_lottery():
         # 3️⃣ Insert eligible participant tokens (source='vote')
         insert_entries_sql = text("""
             INSERT INTO participant_lottery_entries (lottery_id, token_id, users_id, created_at)
-            SELECT :lottery_id, t.token_id, t.users_id, now()
+            SELECT :lottery_id, t.token_id, t.users_id, :now_ist
             FROM tokens t
             WHERE t.source = 'vote'
               AND t.created_at::date = :today
             ON CONFLICT (lottery_id, token_id) DO NOTHING
         """)
-        db.execute(insert_entries_sql, {"lottery_id": lottery_id, "today": today})
+        db.execute(insert_entries_sql, {"lottery_id": lottery_id, "today": today, "now_ist": now_ist})
         print("[Participant Lottery Cron] ✅ Inserted eligible participant tokens")
 
         # 4️⃣ Pick one random participant winner (if not already chosen)
         insert_winner_sql = text("""
             INSERT INTO participant_lottery_winner (lottery_id, users_id, token_id, created_at)
-            SELECT ple.lottery_id, ple.users_id, ple.token_id, now()
+            SELECT ple.lottery_id, ple.users_id, ple.token_id, :now_ist
             FROM participant_lottery_entries ple
             WHERE ple.lottery_id = :lottery_id
             ORDER BY RANDOM()
             LIMIT 1
             ON CONFLICT (lottery_id) DO NOTHING
         """)
-        db.execute(insert_winner_sql, {"lottery_id": lottery_id})
+        db.execute(insert_winner_sql, {"lottery_id": lottery_id, "now_ist": now_ist})
         print("[Participant Lottery Cron] 🏆 Picked participant winner (if not already selected)")
 
         # 5️⃣ Mark participant lottery as completed
         db.execute(text("""
             UPDATE participant_lotteries
-            SET is_completed = TRUE, updated_at = now()
+            SET is_completed = TRUE, updated_at = :now_ist
             WHERE id = :lottery_id
-        """), {"lottery_id": lottery_id})
+        """), {"lottery_id": lottery_id, "now_ist": now_ist})
 
         db.commit()
         print(f"[Participant Lottery Cron] ✅ Completed successfully for {today}")
