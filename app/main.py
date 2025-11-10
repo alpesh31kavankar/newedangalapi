@@ -21,7 +21,8 @@ from app.models.email_verification import EmailVerification
 from app.models.randamqty import RandamQty
 from app.models.daily_question import DailyQuestion
 from app.models.daily_question_answer import DailyQuestionAnswer
-
+from app.models.product_sur_que import ProductSurveyQuestion     # ✅ Product Survey Question Model
+from app.models.product_sur_resp import ProductSurveyResponse  
 # ------------------------------
 # Import routers
 # ------------------------------
@@ -32,7 +33,7 @@ from app.routes.spin_routes import router as spin_router
 from app.routes import lottery_result
 from app.routes import reward_claim
 from app.routes import review
-from app.routes import ticket_report_routes
+from app.routes import ticket_report_routes , product_sur_que,product_sur_resp
 
 
 
@@ -113,6 +114,9 @@ app.include_router(randamqty.router)
 app.include_router(daily_question.router)
 app.include_router(daily_question_answer.router)
 app.include_router(ticket_report_routes.router)
+
+app.include_router(product_sur_que.router)      # ✅ Register product survey question routes
+app.include_router(product_sur_resp.router) 
 
 print(app.routes)
 for route in app.routes:

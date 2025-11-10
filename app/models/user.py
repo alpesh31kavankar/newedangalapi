@@ -31,3 +31,5 @@ class User(Base):
         # ✅ Add this for Leaderboard
     leaderboards = relationship("Leaderboard", back_populates="user", cascade="all, delete-orphan")
     reviews = relationship("ProductReview", back_populates="user")
+
+    spins = relationship("SpinHistory", back_populates="user")

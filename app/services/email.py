@@ -3,8 +3,11 @@
 import smtplib
 from email.mime.text import MIMEText
 
-SENDER_EMAIL = "testsumit19@gmail.com"     # your Gmail address
-APP_PASSWORD = "dyld bnbm auks eopc"       # your Gmail App Password (not normal password)
+# SENDER_EMAIL = "testsumit19@gmail.com"     # your Gmail address
+# APP_PASSWORD = "dyld bnbm auks eopc"       # your Gmail App Password (not normal password)
+
+SENDER_EMAIL = "aaswacontact@gmail.com"     # your Gmail address
+APP_PASSWORD = "gnjy cotv stwo lsla"    
 
 def send_activation_email(to_email: str, activation_link: str):
     body = f"""
