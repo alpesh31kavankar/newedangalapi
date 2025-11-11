@@ -7,6 +7,8 @@ from ..models.gift import Gift
 from ..schemas.reward_claim import RewardClaimRequest, RewardClaimResponse
 from ..models.participant_lottery import ParticipantLottery
 from ..models.p_gift import PGift
+from ..models.lottery_winner import LotteryWinner
+from ..models.participant_lottery_winner import ParticipantLotteryWinner
 
 router = APIRouter(prefix="/reward", tags=["Reward Claims"])
 
@@ -109,17 +111,17 @@ def check_claim(user_id: int, lottery_id: int, claim_type: str, db: Session = De
 @router.get("/my-gifts")
 def get_my_gifts(user_id: int, db: Session = Depends(get_db)):
     claims = db.query(RewardClaim).filter(RewardClaim.user_id == user_id).all()
-
     results = []
+
     for c in claims:
-        token_id = None  # default
+        token_id = None
 
         if c.claim_type == "winning":
             # fetch from normal lottery tables
             lottery = db.query(Lottery).filter(Lottery.id == c.lottery_id).first()
             gift = db.query(Gift).filter(Gift.id == c.gift_id).first()
 
-            # find token_id in LotteryWinner
+            # find token_id in LotteryWinner (uses lotteries_id)
             winner = db.query(LotteryWinner).filter(
                 LotteryWinner.lotteries_id == c.lottery_id,
                 LotteryWinner.users_id == c.user_id
@@ -131,9 +133,9 @@ def get_my_gifts(user_id: int, db: Session = Depends(get_db)):
             lottery = db.query(ParticipantLottery).filter(ParticipantLottery.id == c.lottery_id).first()
             gift = db.query(PGift).filter(PGift.id == c.gift_id).first()
 
-            # find token_id in ParticipantLotteryWinner
+            # find token_id in ParticipantLotteryWinner (uses lottery_id)
             pwinner = db.query(ParticipantLotteryWinner).filter(
-                ParticipantLotteryWinner.lotteries_id == c.lottery_id,
+                ParticipantLotteryWinner.lottery_id == c.lottery_id,
                 ParticipantLotteryWinner.users_id == c.user_id
             ).first()
             token_id = getattr(pwinner, "token_id", None)
@@ -151,6 +153,7 @@ def get_my_gifts(user_id: int, db: Session = Depends(get_db)):
         })
 
     return results
+
 
 
 

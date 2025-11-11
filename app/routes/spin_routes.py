@@ -48,14 +48,13 @@ def spin_wheel(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Spin the wheel for the current user."""
+    """Spin the wheel for the current user (stores created_at in IST)."""
     prize_type = data.prize_type
     prize_value = data.prize_value
 
-    # Convert to IST (for date comparison)
+    # 🇮🇳 Get current IST time
     ist = pytz.timezone("Asia/Kolkata")
-    now_utc = datetime.now(timezone.utc)
-    now_local = now_utc.astimezone(ist)
+    now_local = datetime.now(ist)
     today_date = now_local.date()
 
     # ✅ Get the last spin for this user
@@ -88,11 +87,12 @@ def spin_wheel(
 
     token_ids = []
 
-    # ✅ Always record the spin
+    # ✅ Record the spin with IST timestamp
     spin_record = SpinHistory(
         user_id=current_user.id,
         prize_type=prize_type,
         prize_value=prize_value,
+        created_at=now_local,  # ⏰ store IST time
     )
     db.add(spin_record)
 
@@ -105,7 +105,8 @@ def spin_wheel(
                     token_id=token_id,
                     users_id=current_user.id,
                     token_type="W",
-                    source="spin",
+                    source="spin",  # ✅ keep as spin (changes later when claimed)
+                    created_at=now_local,  # ⏰ IST timestamp
                 )
                 db.add(token)
                 token_ids.append(token_id)
@@ -152,3 +153,57 @@ def spin_history(
         .all()
     )
     return spins
+
+# ---------------------------
+# 🆕 GET: Claimable spin tokens
+# ---------------------------
+@router.get("/claimable", response_model=List[dict])
+def get_claimable_spin_tokens(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Fetch all unclaimed tokens generated from spin."""
+    tokens = (
+        db.query(Token)
+        .filter(Token.users_id == current_user.id, Token.source == "spin")
+        .order_by(Token.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "token_id": t.token_id,
+            "token_type": t.token_type,
+            "created_at": t.created_at,
+        }
+        for t in tokens
+    ]
+
+
+# ---------------------------
+# 🆕 POST: Claim spin reward
+# ---------------------------
+@router.post("/claim")
+def claim_spin_reward(
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mark a spin-generated token as claimed (convert source → C_spin)."""
+    token_id = body.get("token_id")
+    if not token_id:
+        raise HTTPException(status_code=400, detail="token_id is required.")
+
+    token = (
+        db.query(Token)
+        .filter(Token.token_id == token_id, Token.users_id == current_user.id)
+        .first()
+    )
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found.")
+    if token.source != "spin":
+        raise HTTPException(status_code=400, detail="Token already claimed.")
+
+    token.source = "C_spin"
+    db.commit()
+
+    return {"status": "success", "message": f"Token {token_id} claimed successfully."}

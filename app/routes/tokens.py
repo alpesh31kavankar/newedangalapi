@@ -108,6 +108,8 @@ def get_participation_tokens(
     Fetch all today's W tokens for the logged-in user:
     - 'claim' tokens → linked to questions
     - 'C_referral_bonus' and 'C_referral' → referral tokens
+    - 'daily_lucky_draw' → lucky draw rewards
+    - 'C_spin' → claimed spin rewards
     """
     today = date.today()
 
@@ -185,6 +187,29 @@ def get_participation_tokens(
             "source": t.source
         }
         for t in lucky_draw_tokens
+    ]
+        # 4️⃣ Claimed Spin Tokens (C_spin)
+    spin_claim_tokens = (
+        db.query(Token)
+        .filter(
+            Token.users_id == current_user.id,
+            Token.token_type == "W",
+            Token.source == "C_spin",
+            cast(Token.created_at, Date) == today
+        )
+        .all()
+    )
+
+    result += [
+        {
+            "token_id": t.token_id,
+            "question_rounds_id": None,
+            "product_id": None,
+            "question_text": None,
+            "created_at": t.created_at,
+            "source": t.source
+        }
+        for t in spin_claim_tokens
     ]
 
     return result

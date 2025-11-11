@@ -15,7 +15,7 @@ def get_current_lottery_winners():
     now = datetime.now(ist)
     today = now.date()
 
-    show_time = time(20, 0)  # ✅ Show result after 8:00 PM next day
+    show_time = time(12, 0)  # ✅ Show result after 8:00 PM next day
 
     # 🕒 Before 8:00 PM → show yesterday’s result
     if now.time() < show_time:
