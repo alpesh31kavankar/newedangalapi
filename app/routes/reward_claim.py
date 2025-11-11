@@ -80,18 +80,63 @@ def check_claim(user_id: int, lottery_id: int, claim_type: str, db: Session = De
         return {"already_claimed": True, "message": f"{claim_type.capitalize()} reward already claimed"}
     return {"already_claimed": False}
 
+# @router.get("/my-gifts")
+# def get_my_gifts(user_id: int, db: Session = Depends(get_db)):
+#     claims = db.query(RewardClaim).filter(RewardClaim.user_id == user_id).all()  # <- filter by user_id
+
+#     results = []
+#     for c in claims:
+#         if c.claim_type == "winning":
+#             lottery = db.query(Lottery).filter(Lottery.id == c.lottery_id).first()
+#             gift = db.query(Gift).filter(Gift.id == c.gift_id).first()
+#         else:
+#             lottery = db.query(ParticipantLottery).filter(ParticipantLottery.id == c.lottery_id).first()
+#             gift = db.query(PGift).filter(PGift.id == c.gift_id).first()
+
+#         results.append({
+#             "claim_id": c.id,
+#             "claim_type": c.claim_type,
+#             "is_claimed": c.is_claimed,
+#             "lottery_id": c.lottery_id,
+#             "lottery_name": getattr(lottery, "name", None),
+#             "gift_name": getattr(gift, "name", None),
+#             "gift_image": getattr(gift, "image_url", None),
+#             "claimed_at": c.created_at,
+#         })
+
+#     return results
+
 @router.get("/my-gifts")
 def get_my_gifts(user_id: int, db: Session = Depends(get_db)):
-    claims = db.query(RewardClaim).filter(RewardClaim.user_id == user_id).all()  # <- filter by user_id
+    claims = db.query(RewardClaim).filter(RewardClaim.user_id == user_id).all()
 
     results = []
     for c in claims:
+        token_id = None  # default
+
         if c.claim_type == "winning":
+            # fetch from normal lottery tables
             lottery = db.query(Lottery).filter(Lottery.id == c.lottery_id).first()
             gift = db.query(Gift).filter(Gift.id == c.gift_id).first()
-        else:
+
+            # find token_id in LotteryWinner
+            winner = db.query(LotteryWinner).filter(
+                LotteryWinner.lotteries_id == c.lottery_id,
+                LotteryWinner.users_id == c.user_id
+            ).first()
+            token_id = getattr(winner, "token_id", None)
+
+        elif c.claim_type in ["participant", "participation"]:
+            # fetch from participant tables
             lottery = db.query(ParticipantLottery).filter(ParticipantLottery.id == c.lottery_id).first()
             gift = db.query(PGift).filter(PGift.id == c.gift_id).first()
+
+            # find token_id in ParticipantLotteryWinner
+            pwinner = db.query(ParticipantLotteryWinner).filter(
+                ParticipantLotteryWinner.lotteries_id == c.lottery_id,
+                ParticipantLotteryWinner.users_id == c.user_id
+            ).first()
+            token_id = getattr(pwinner, "token_id", None)
 
         results.append({
             "claim_id": c.id,
@@ -101,9 +146,11 @@ def get_my_gifts(user_id: int, db: Session = Depends(get_db)):
             "lottery_name": getattr(lottery, "name", None),
             "gift_name": getattr(gift, "name", None),
             "gift_image": getattr(gift, "image_url", None),
+            "token_id": token_id,
             "claimed_at": c.created_at,
         })
 
     return results
+
 
 
