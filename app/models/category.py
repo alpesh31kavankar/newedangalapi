@@ -1,5 +1,5 @@
 # app/models/category.py
-from sqlalchemy import Column, Integer, Text, DateTime, func
+from sqlalchemy import Column, Integer, Text, DateTime, func,ForeignKey
 from ..database import Base  # ✅ use the same Base
 
 class Category(Base):
@@ -9,6 +9,7 @@ class Category(Base):
     category_name = Column(Text, unique=True, nullable=False)
     description = Column(Text)
     image_url = Column(Text)
-    round_interval_minutes = Column(Integer, nullable=False, default=30)
+      # parent main category
+    maincategory_id = Column(Integer, ForeignKey("main_categories.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

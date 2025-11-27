@@ -20,6 +20,7 @@ def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
     next_seq = last_seq + 1
     return f"{token_type}{today_str}{next_seq:04d}", next_seq
 
+
 def get_last_token_seq(db: Session, token_type: str) -> int:
     last_token = (
         db.query(Token)
@@ -32,11 +33,13 @@ def get_last_token_seq(db: Session, token_type: str) -> int:
     )
     return int(last_token.token_id[-4:]) if last_token else 0
 
+
 # ---------------------------
 # POST: Claim Daily Reward
 # ---------------------------
 @router.post("/claim-daily-reward")
 def claim_daily_reward(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+
     # Convert to IST
     now_utc = datetime.now(timezone.utc)
     ist = pytz.timezone("Asia/Kolkata")
@@ -47,19 +50,21 @@ def claim_daily_reward(db: Session = Depends(get_db), current_user: User = Depen
     if 20 <= now_local.hour < 24:
         raise HTTPException(status_code=403, detail="Cannot claim between 8 PM - 12 AM")
 
-    # ✅ Check if user already collected today
+    # Check if user already collected today
     already_collected = (
         db.query(DailyTicketClaim)
         .filter(DailyTicketClaim.user_id == current_user.id)
-        .filter(func.date(DailyTicketClaim.collected_at) == today_date)
+        .filter(DailyTicketClaim.collected_date == today_date)
         .first()
     )
+
     if already_collected:
         raise HTTPException(status_code=400, detail="Already collected today's reward")
 
     # Determine next day number
     claimed_count = db.query(DailyTicketClaim).filter_by(user_id=current_user.id).count()
     day_number = claimed_count + 1
+
     if day_number > 50:
         raise HTTPException(status_code=400, detail="Daily reward program completed")
 
@@ -68,11 +73,10 @@ def claim_daily_reward(db: Session = Depends(get_db), current_user: User = Depen
     if not reward:
         raise HTTPException(status_code=404, detail="Reward not found")
 
-    # Get last W token sequence
-    last_seq = get_last_token_seq(db, "W")
-
     # Generate tokens
+    last_seq = get_last_token_seq(db, "W")
     token_codes = []
+
     for _ in range(reward.tickets):
         token_id, last_seq = generate_token_id_next("W", last_seq)
         token = Token(
@@ -84,68 +88,91 @@ def claim_daily_reward(db: Session = Depends(get_db), current_user: User = Depen
         db.add(token)
         token_codes.append(token_id)
 
-    # Record claim
+    # Save daily claim (UTC in DB)
     claim = DailyTicketClaim(
         user_id=current_user.id,
         reward_id=reward.id,
-        collected_date=today_date,  # make sure model has this column
+        collected_date=today_date
     )
+
     db.add(claim)
     db.commit()
+    db.refresh(claim)
+
+    # Convert collected_at to IST for return
+    collected_at_ist = claim.collected_at.astimezone(ist).isoformat()
 
     return {
         "day_number": day_number,
         "tickets_earned": reward.tickets,
         "token_codes": token_codes,
-        "collected_at": claim.collected_at.isoformat(),
+        "collected_at": collected_at_ist,
     }
 
+
 # ---------------------------
-# GET: Fetch user's daily claim history
+# GET: Fetch Daily Claim History
 # ---------------------------
 @router.get("/history")
 def get_daily_claims(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Convert to IST
-    now_utc = datetime.now(timezone.utc)
-    ist = pytz.timezone("Asia/Kolkata")
-    today_date = now_utc.astimezone(ist).date()
 
-    # Get all rewards
+    ist = pytz.timezone("Asia/Kolkata")
+    today_date = datetime.now(timezone.utc).astimezone(ist).date()
+
+    # Fetch all rewards
     rewards = db.query(TicketReward).order_by(TicketReward.day_number).all()
 
-    # Get user's claimed days
-    claims = db.query(DailyTicketClaim).filter_by(user_id=current_user.id).all()
+    # Fetch user claims
+    claims = (
+        db.query(DailyTicketClaim)
+        .filter_by(user_id=current_user.id)
+        .order_by(DailyTicketClaim.collected_at)
+        .all()
+    )
+
     claimed_map = {c.reward_id: c for c in claims}
 
-    # Count how many days user has already collected
+    # Last collected date (UTC → IST)
+    last_claim = claims[-1] if claims else None
+    last_collected_date = (
+        last_claim.collected_at.astimezone(ist).date()
+        if last_claim else None
+    )
+
+    # Did user collect today?
+    collected_today = (last_collected_date == today_date)
+
     claimed_count = len(claims)
     next_day_number = claimed_count + 1
 
     result = []
+
     for reward in rewards:
         claim = claimed_map.get(reward.id)
         collected = bool(claim)
 
-        # 🔓 Unlock rule
-        # - Already collected → unlocked (collected = True)
-        # - Next uncollected day = unlocked (today's available)
-        # - Others → locked
-        unlocked = (
-            collected or
-            (reward.day_number == next_day_number)
-        )
+        # Unlock rules
+        if collected:
+            unlocked = True
+
+        elif reward.day_number == next_day_number:
+            unlocked = not collected_today
+
+        else:
+            unlocked = False
 
         result.append({
             "day": reward.day_number,
             "tickets": reward.tickets,
             "collected": collected,
-            "collected_at": claim.collected_at.isoformat() if claim else None,
+            "collected_at": (
+                claim.collected_at.astimezone(ist).isoformat()
+                if claim else None
+            ),
             "locked": not unlocked
         })
 
     return result
-
-

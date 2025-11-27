@@ -7,87 +7,118 @@ from ..models.category import Category
 from ..models.product import Product
 from ..models.question import Question
 from ..models.question_round import QuestionRound
+from ..models.main_category import MainCategory
 import pytz
 
-# Active hours: only generate rounds between 8 AM and 10 PM
 ACTIVE_START_HOUR = 1
 ACTIVE_END_HOUR = 19
-
-# ACTIVE_START_HOUR = 8
-# ACTIVE_END_HOUR = 9
 
 def generate_question_rounds():
     db: Session = SessionLocal()
     created_rounds = []
 
     try:
-        # Current UTC time and convert to IST
+        # Current time in IST
         now_utc = datetime.now(timezone.utc)
         ist = pytz.timezone("Asia/Kolkata")
         now_local = now_utc.astimezone(ist)
         current_hour = now_local.hour
 
-        # Skip generation if outside active hours
+        # Check active hours
         if current_hour < ACTIVE_START_HOUR or current_hour >= ACTIVE_END_HOUR:
-            print(f"⏰ Outside active hours ({ACTIVE_START_HOUR}-{ACTIVE_END_HOUR}), skipping round generation")
+            print("⏰ Outside active hours, skipping round generation.")
             return []
 
-        categories = db.query(Category).all()
+        # Load all main categories
+        maincategories = db.query(MainCategory).all()
 
-        for category in categories:
-            # Latest round
+        for maincat in maincategories:
+
+            # 1️⃣ Find last created round for this MAIN category
             last_round = (
                 db.query(QuestionRound)
-                .filter(QuestionRound.categories_id == category.id)
+                .join(Category, Category.id == QuestionRound.categories_id)
+                .filter(Category.maincategory_id == maincat.id)
                 .order_by(QuestionRound.release_time.desc())
                 .first()
             )
 
-            # Skip if interval not passed
+            # 2️⃣ Interval check
             if last_round:
-                # Ensure last_round.release_time is timezone-aware
-                last_round_time = last_round.release_time
-                if last_round_time.tzinfo is None:
-                    last_round_time = last_round_time.replace(tzinfo=timezone.utc)
-                diff_seconds = (now_local - last_round_time).total_seconds()
-                if diff_seconds < category.round_interval_minutes * 60:
-                    print(f"⏳ Skipping category '{category.category_name}' ({diff_seconds/60:.1f} min since last round)")
+                last_time = last_round.release_time
+                if last_time.tzinfo is None:
+                    last_time = last_time.replace(tzinfo=timezone.utc)
+
+                diff_seconds = (now_local - last_time).total_seconds()
+
+                if diff_seconds < maincat.interval_minutes * 60:
+                    print(f"⏳ '{maincat.name}' waiting... interval not finished.")
                     continue
 
-            # Get products
-            products = db.query(Product).filter(Product.categories_id == category.id).all()
-            if len(products) < 2:
-                print(f"⚠️ Not enough products in category '{category.category_name}' to create a round")
+            # 3️⃣ Get all subcategories under this main category
+            subcategories = (
+                db.query(Category)
+                .filter(Category.maincategory_id == maincat.id)
+                .all()
+            )
+
+            if not subcategories:
+                print(f"⚠️ No subcategories for maincategory '{maincat.name}'")
                 continue
 
-            # Pick two products
+            # 4️⃣ Pick ONE subcategory randomly
+            selected_category = random.choice(subcategories)
+
+            # 5️⃣ Load products from this subcategory
+            products = (
+                db.query(Product)
+                .filter(Product.categories_id == selected_category.id)
+                .all()
+            )
+
+            if len(products) < 2:
+                print(f"⚠️ Not enough products in '{selected_category.category_name}'")
+                continue
+
             product1, product2 = random.sample(products, 2)
 
-            # Random question
-            question = db.query(Question).order_by(func.random()).first()
-            if not question:
-                print(f"⚠️ No questions found for category '{category.category_name}'")
+            # 6️⃣ Load questions from this subcategory
+            questions = (
+                db.query(Question)
+                .filter(Question.category_id == selected_category.id)
+                .all()
+            )
+
+            if not questions:
+                print(f"⚠️ No questions for '{selected_category.category_name}'")
                 continue
 
-            # Create round using timezone-aware now
+            question = random.choice(questions)
+
+            # 7️⃣ Create the new round
             new_round = QuestionRound(
                 questions_id=question.id,
-                categories_id=category.id,
+                categories_id=selected_category.id,
                 product1_id=product1.id,
                 product2_id=product2.id,
                 release_time=now_local,
-                max_votes=5,
+                max_votes=5
             )
+
             db.add(new_round)
             created_rounds.append(new_round)
-            print(f"✅ Created new round for category '{category.category_name}'")
+
+            print(
+                f"🔥 Round Created → MainCategory: {maincat.name}, "
+                f"SubCategory: {selected_category.category_name}"
+            )
 
         db.commit()
         return created_rounds
 
     except Exception as e:
         db.rollback()
-        print(f"❌ Cron job error: {e}")
+        print("❌ Cron Error:", e)
         raise
     finally:
         db.close()

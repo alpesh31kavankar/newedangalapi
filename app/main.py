@@ -36,8 +36,8 @@ from app.routes import lottery_result
 from app.routes import reward_claim
 from app.routes import review
 from app.routes import ticket_report_routes , product_sur_que,product_sur_resp
-
-
+# from routes.main_categories import router as main_category_router
+from app.routes import main_categories
 
 
 from app.services.leaderboard_rank_updater import start_leaderboard_scheduler
@@ -121,6 +121,8 @@ app.include_router(ticket_report_routes.router)
 
 app.include_router(product_sur_que.router)      # ✅ Register product survey question routes
 app.include_router(product_sur_resp.router) 
+
+app.include_router(main_categories.router)
 
 print(app.routes)
 for route in app.routes:

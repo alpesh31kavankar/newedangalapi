@@ -55,7 +55,8 @@ def google_login(payload: dict = Body(...), db: Session = Depends(get_db)):
         verified_payload = id_token.verify_oauth2_token(
             id_token_str,
             requests.Request(),
-            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10 
         )
         print("✅ Verified Google payload:", verified_payload)
 

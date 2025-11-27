@@ -12,6 +12,19 @@ from ..models.user import User
 
 router = APIRouter(prefix="/votes", tags=["votes"])
 
+@router.get("/my", tags=["votes"])
+def get_my_votes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    user_id = current_user.id
+    
+    voted_rounds = db.query(Vote.question_rounds_id).filter(
+        Vote.users_id == user_id
+    ).all()
+
+    # Convert SQL result → normal list
+    return [v[0] for v in voted_rounds]
 
 @router.post("/", response_model=VoteOut)
 def cast_vote(

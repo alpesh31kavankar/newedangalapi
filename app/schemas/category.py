@@ -32,7 +32,7 @@ class CategoryBase(BaseModel):
     category_name: str
     description: Optional[str]
     image_url: Optional[str]
-    round_interval_minutes: int = 30 
+    maincategory_id: Optional[int] = None  
 
 class CategoryCreate(CategoryBase):
     pass
