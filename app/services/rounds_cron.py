@@ -106,6 +106,8 @@ def generate_question_rounds():
             )
 
             db.add(new_round)
+            db.commit()           # ← REQUIRED so ID gets generated
+            db.refresh(new_round)
             created_rounds.append(new_round)
 
             print(
