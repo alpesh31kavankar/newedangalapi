@@ -85,7 +85,7 @@ def generate_question_rounds():
             # 6️⃣ Load questions from this subcategory
             questions = (
                 db.query(Question)
-                .filter(Question.category_id == selected_category.id)
+                .filter(Question.categories_id == selected_category.id)
                 .all()
             )
 
