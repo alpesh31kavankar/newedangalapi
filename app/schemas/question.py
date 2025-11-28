@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 class QuestionBase(BaseModel):
     question_text: str
-    category_id: int
+    categories_id: int
 
 class QuestionCreate(QuestionBase):
     pass
