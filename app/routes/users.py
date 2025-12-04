@@ -9,7 +9,8 @@ from fastapi import UploadFile, File
 from PIL import Image
 
 
-UPLOAD_DIR = "uploads/profile_images"
+# UPLOAD_DIR = "uploads/profile_images"
+UPLOAD_DIR = "/opt/render/project/src/uploads/profile_images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 from ..database import get_db
 from ..models.user import User

@@ -8,7 +8,7 @@ from ..models.token import Token
 import pytz
 
 # Finalization active hour (after 8 PM IST)
-FINALIZE_HOUR = 19# 8 PM IST
+FINALIZE_HOUR = 22# 8 PM IST
 
 def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
     """Generate next token id based on last sequence."""

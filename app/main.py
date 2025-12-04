@@ -56,7 +56,8 @@ from app.services.participant_lottery_cron import perform_daily_participant_lott
 # Create all tables (SQLAlchemy will only create missing tables)
 # ------------------------------
 Base.metadata.create_all(bind=engine)
-UPLOAD_DIR = "uploads/profile_images"
+# UPLOAD_DIR = "uploads/profile_images"
+UPLOAD_DIR = "/opt/render/project/src/uploads/profile_images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ------------------------------
@@ -143,13 +144,13 @@ def startup_event():
     scheduler.add_job(generate_question_rounds, "interval", minutes=1)
     scheduler.add_job(finalize_rounds, "interval", minutes=1)
       # new job: run daily lottery at 20:00 (8 PM server time)
-    scheduler.add_job(perform_daily_lottery, "cron", hour=20, minute=14, timezone=ist)
+    scheduler.add_job(perform_daily_lottery, "cron", hour=20, minute=25, timezone=ist)
     scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18, timezone=ist)
     scheduler.add_job(
     perform_daily_participant_lottery,
     trigger="cron",
     hour=20,
-    minute=14,
+    minute=25,
     id="participant_lottery_cron",
     replace_existing=True,
     timezone=ist
