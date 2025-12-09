@@ -11,6 +11,7 @@ routes_info = []
 import pytz  # Import pytz for time zone management
 from datetime import datetime, timezone
 
+
 # ------------------------------
 # Import all models so SQLAlchemy knows about tables and foreign keys
 # ------------------------------
@@ -158,6 +159,8 @@ def startup_event():
     start_leaderboard_scheduler()
     scheduler.start()
    
+
+
 
 @app.on_event("shutdown")
 def shutdown_event():

@@ -35,6 +35,80 @@ def create_round(round_in: QuestionRoundCreate, db: Session = Depends(get_db)):
 
 from ..models.vote import Vote
 
+# @router.get("/maincategory/{maincategory_id}")
+# def get_rounds_by_maincategory(maincategory_id: int, db: Session = Depends(get_db)):
+    
+#     maincat = db.query(MainCategory).filter(MainCategory.id == maincategory_id).first()
+#     if not maincat:
+#         raise HTTPException(status_code=404, detail="MainCategory not found")
+
+#     categories = (
+#         db.query(Category)
+#         .filter(Category.maincategory_id == maincategory_id)
+#         .all()
+#     )
+
+#     if not categories:
+#         raise HTTPException(status_code=404, detail="No categories found under this maincategory")
+
+#     category_ids = [c.id for c in categories]
+
+#     rounds = (
+#         db.query(QuestionRound)
+#         .filter(QuestionRound.categories_id.in_(category_ids))
+#         .filter(QuestionRound.is_locked == False)
+#         .order_by(QuestionRound.release_time.desc())
+#         .all()
+#     )
+
+#     if not rounds:
+#         raise HTTPException(status_code=404, detail="No rounds found for this maincategory")
+
+#     latest_round = rounds[0]
+
+#     # Use maincategory interval
+#     next_round_time = latest_round.release_time + timedelta(minutes=maincat.interval_minutes)
+
+#     now = datetime.now(timezone.utc)
+#     remaining_seconds = max(0, int((next_round_time - now).total_seconds()))
+
+#     result = []
+#     for r in rounds:
+#         question = db.query(Question).filter(Question.id == r.questions_id).first()
+
+#         cat = next((c for c in categories if c.id == r.categories_id), None)
+
+#         votes_product1 = db.query(Vote).filter(
+#             Vote.question_rounds_id == r.id,
+#             Vote.products_id == r.product1_id
+#         ).count()
+
+#         votes_product2 = db.query(Vote).filter(
+#             Vote.question_rounds_id == r.id,
+#             Vote.products_id == r.product2_id
+#         ).count()
+
+#         result.append({
+#             "round_id": r.id,
+#             "release_time": r.release_time,
+#             "category_name": cat.category_name if cat else "",
+#             "category_image": cat.image_url if cat else "",
+#             "question_text": question.question_text if question else "",
+#             "votes_product1": votes_product1,
+#             "votes_product2": votes_product2,
+#             "votes_so_far": votes_product1 + votes_product2,
+#             "max_votes": r.max_votes
+#         })
+
+#     return {
+#         "category_id": maincat.id,
+#         "category_name": maincat.name,  # OK if column is 'name'
+#         "category_image": maincat.image_url,
+#         "round_interval_minutes": maincat.interval_minutes,
+#         "next_round_time": next_round_time.isoformat(),
+#         "remaining_seconds": remaining_seconds,
+#         "rounds": result
+#     }
 @router.get("/maincategory/{maincategory_id}")
 def get_rounds_by_maincategory(maincategory_id: int, db: Session = Depends(get_db)):
     
@@ -42,40 +116,24 @@ def get_rounds_by_maincategory(maincategory_id: int, db: Session = Depends(get_d
     if not maincat:
         raise HTTPException(status_code=404, detail="MainCategory not found")
 
-    categories = (
-        db.query(Category)
-        .filter(Category.maincategory_id == maincategory_id)
-        .all()
-    )
-
+    categories = db.query(Category).filter(Category.maincategory_id == maincategory_id).all()
     if not categories:
         raise HTTPException(status_code=404, detail="No categories found under this maincategory")
 
     category_ids = [c.id for c in categories]
 
-    rounds = (
-        db.query(QuestionRound)
-        .filter(QuestionRound.categories_id.in_(category_ids))
-        .filter(QuestionRound.is_locked == False)
-        .order_by(QuestionRound.release_time.desc())
-        .all()
-    )
+    rounds = db.query(QuestionRound).filter(
+        QuestionRound.categories_id.in_(category_ids),
+        QuestionRound.is_locked == False
+    ).all()
 
     if not rounds:
         raise HTTPException(status_code=404, detail="No rounds found for this maincategory")
 
-    latest_round = rounds[0]
-
-    # Use maincategory interval
-    next_round_time = latest_round.release_time + timedelta(minutes=maincat.interval_minutes)
-
-    now = datetime.now(timezone.utc)
-    remaining_seconds = max(0, int((next_round_time - now).total_seconds()))
-
+    # Calculate votes for each round
     result = []
     for r in rounds:
         question = db.query(Question).filter(Question.id == r.questions_id).first()
-
         cat = next((c for c in categories if c.id == r.categories_id), None)
 
         votes_product1 = db.query(Vote).filter(
@@ -100,16 +158,23 @@ def get_rounds_by_maincategory(maincategory_id: int, db: Session = Depends(get_d
             "max_votes": r.max_votes
         })
 
+    # Sort rounds by votes_so_far in descending order
+    result.sort(key=lambda x: x["votes_so_far"], reverse=True)
+
+    latest_round = rounds[0]
+    next_round_time = latest_round.release_time + timedelta(minutes=maincat.interval_minutes)
+    now = datetime.now(timezone.utc)
+    remaining_seconds = max(0, int((next_round_time - now).total_seconds()))
+
     return {
         "category_id": maincat.id,
-        "category_name": maincat.name,  # OK if column is 'name'
+        "category_name": maincat.name,
         "category_image": maincat.image_url,
         "round_interval_minutes": maincat.interval_minutes,
         "next_round_time": next_round_time.isoformat(),
         "remaining_seconds": remaining_seconds,
         "rounds": result
     }
-
 
 # -----------------------------
 # Get all rounds

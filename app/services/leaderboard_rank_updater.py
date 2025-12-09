@@ -37,6 +37,6 @@ def update_monthly_leaderboard():
 
 def start_leaderboard_scheduler():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(update_monthly_leaderboard, "interval", minutes=1)
+    scheduler.add_job(update_monthly_leaderboard, "interval", seconds=3)
     scheduler.start()
     print("[CRON] 🕒 Leaderboard updater started (every 1 min)")
