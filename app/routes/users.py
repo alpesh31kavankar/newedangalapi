@@ -1,5 +1,6 @@
 # app/routes/users.py
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, time
 import secrets
@@ -63,6 +64,12 @@ def generate_winning_token(db: Session):
 
     return f"{prefix}{new_number}"
 
+@router.get("/count")
+def get_total_users(db: Session = Depends(get_db)):
+    total_users = db.query(func.count(User.id)).scalar()
+    return {
+        "total_users": total_users
+    }
 
 @router.get("/me", response_model=UserOut)
 def get_my_profile(current_user: User = Depends(get_current_user)):

@@ -47,8 +47,8 @@ def claim_daily_reward(db: Session = Depends(get_db), current_user: User = Depen
     today_date = now_local.date()
 
     # Block 8 PM - 12 AM
-    if 20 <= now_local.hour < 24:
-        raise HTTPException(status_code=403, detail="Cannot claim between 8 PM - 12 AM")
+    if 22 <= now_local.hour < 24:
+        raise HTTPException(status_code=403, detail="Cannot claim between 10 PM - 12 AM")
 
     # Check if user already collected today
     already_collected = (

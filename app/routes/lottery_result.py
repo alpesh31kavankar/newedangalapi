@@ -50,3 +50,49 @@ def get_current_lottery_winners():
         "participant": participant,
         "winning": winning,
     }
+
+@router.get("/history")
+def get_lottery_history():
+    db = SessionLocal()
+    history = {}
+
+    # 🟢 All participant winners
+    participants = db.execute(text("""
+        SELECT 
+            w.created_at::date AS win_date,
+            w.*,
+            u.username,
+            u.profile_image
+        FROM participant_lottery_winner w
+        JOIN users u ON u.id = w.users_id
+        ORDER BY win_date DESC, w.id DESC
+    """)).mappings().all()
+
+    for row in participants:
+        date_key = str(row["win_date"])
+        history.setdefault(date_key, []).append({
+            "type": "participant",
+            "winner": row
+        })
+
+    # 🟢 All token winners
+    winnings = db.execute(text("""
+        SELECT 
+            w.created_at::date AS win_date,
+            w.*,
+            u.username,
+            u.profile_image
+        FROM lottery_winner w
+        JOIN users u ON u.id = w.users_id
+        ORDER BY win_date DESC, w.id DESC
+    """)).mappings().all()
+
+    for row in winnings:
+        date_key = str(row["win_date"])
+        history.setdefault(date_key, []).append({
+            "type": "winning",
+            "winner": row
+        })
+
+    db.close()
+    return history

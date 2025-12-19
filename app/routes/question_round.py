@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException ,Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.question_round import QuestionRound
 from ..schemas.question_round import QuestionRoundCreate, QuestionRoundOut
-from datetime import datetime , timezone, timedelta
+from datetime import datetime , timezone, timedelta, date
 from ..models.question import Question
 from ..models.category import Category
 from ..models.product import Product
@@ -182,6 +183,22 @@ def get_rounds_by_maincategory(maincategory_id: int, db: Session = Depends(get_d
 @router.get("/", response_model=list[QuestionRoundOut])
 def get_rounds(db: Session = Depends(get_db)):
     return db.query(QuestionRound).all()
+
+
+@router.get("/count/today")
+def get_battles_today(db: Session = Depends(get_db)):
+    today = date.today()
+
+    battles_today = (
+        db.query(func.count(QuestionRound.id))
+        .filter(func.date(QuestionRound.created_at) == today)
+        .scalar()
+    )
+
+    return {
+        "battles_today": battles_today
+    }
+
 
 # -----------------------------
 # Get a single round by ID

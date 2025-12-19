@@ -1,5 +1,6 @@
 from sqlalchemy.orm import aliased
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.token import Token
@@ -30,6 +31,13 @@ def get_tokens_by_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No tokens found for user")
     return tokens
 
+@router.get("/count")
+def get_total_tokens(db: Session = Depends(get_db)):
+    total_tokens = db.query(func.count(Token.token_id)).scalar()
+    return {
+        "total_tokens": total_tokens
+    }
+    
 @router.post("/claim/{token_id}", response_model=TokenOut)
 def claim_token(
     token_id: str,
