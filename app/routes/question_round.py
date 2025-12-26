@@ -123,10 +123,20 @@ def get_rounds_by_maincategory(maincategory_id: int, db: Session = Depends(get_d
 
     category_ids = [c.id for c in categories]
 
-    rounds = db.query(QuestionRound).filter(
+    # rounds = db.query(QuestionRound).filter(
+    #     QuestionRound.categories_id.in_(category_ids),
+    #     QuestionRound.is_locked == False
+    # ).all()
+    rounds = (
+    db.query(QuestionRound)
+    .filter(
         QuestionRound.categories_id.in_(category_ids),
         QuestionRound.is_locked == False
-    ).all()
+    )
+    .order_by(QuestionRound.release_time.desc())
+    .all()
+)
+
 
     if not rounds:
         raise HTTPException(status_code=404, detail="No rounds found for this maincategory")
