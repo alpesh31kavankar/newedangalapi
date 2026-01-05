@@ -220,6 +220,31 @@ def get_participation_tokens(
         for t in spin_claim_tokens
     ]
 
+        # 5️⃣ Monthly Reward Tokens
+    monthly_reward_tokens = (
+        db.query(Token)
+        .filter(
+            Token.users_id == current_user.id,
+            Token.token_type == "W",
+            Token.source == "monthly_reward",
+            cast(Token.created_at, Date) == today
+        )
+        .all()
+    )
+
+    result += [
+        {
+            "token_id": t.token_id,
+            "question_rounds_id": None,
+            "product_id": None,
+            "question_text": None,
+            "created_at": t.created_at,
+            "source": t.source
+        }
+        for t in monthly_reward_tokens
+    ]
+
+
     return result
 
 @router.get("/verify/{token_id}")

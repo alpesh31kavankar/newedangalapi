@@ -3,6 +3,8 @@ from fastapi import APIRouter
 from sqlalchemy import text
 from ..database import SessionLocal
 import pytz  # ✅ To ensure we use Indian Standard Time (IST)
+from collections import defaultdict
+
 
 router = APIRouter(prefix="/lottery", tags=["Lottery Results"])
 
@@ -51,48 +53,103 @@ def get_current_lottery_winners():
         "winning": winning,
     }
 
-@router.get("/history")
-def get_lottery_history():
-    db = SessionLocal()
-    history = {}
 
-    # 🟢 All participant winners
-    participants = db.execute(text("""
-        SELECT 
+# @router.get("/history")
+# def lottery_history():
+#     db = SessionLocal()
+
+#     rows = db.execute(text("""
+#         -- PARTICIPANTS
+#         SELECT
+#             p.created_at::date AS draw_date,
+#             p.token_id,
+#             u.username,
+#             u.profile_image,
+#             'participant' AS type
+#         FROM participant_lottery_winner p
+#         JOIN users u ON u.id = p.users_id
+
+#         UNION ALL
+
+#         -- WINNERS
+#         SELECT
+#             w.created_at::date AS draw_date,
+#             w.token_id,
+#             u.username,
+#             u.profile_image,
+#             'winner' AS type
+#         FROM lottery_winner w
+#         JOIN users u ON u.id = w.users_id
+
+#         ORDER BY draw_date DESC
+#     """)).mappings().all()
+
+#     db.close()
+
+#     result = defaultdict(list)
+
+#     for r in rows:
+#         date_key = str(r["draw_date"])
+
+#         result[date_key].append({
+#             "type": r["type"],          # "participant" | "winner"
+#             "username": r["username"],
+#             "profile_image": r["profile_image"],
+#             "token": r["token_id"]
+#         })
+
+#     return dict(result)
+
+
+@router.get("/history")
+def lottery_history():
+    db = SessionLocal()
+
+    participant_rows = db.execute(text("""
+        SELECT
             w.created_at::date AS win_date,
-            w.*,
+            w.token_id,
             u.username,
             u.profile_image
         FROM participant_lottery_winner w
         JOIN users u ON u.id = w.users_id
-        ORDER BY win_date DESC, w.id DESC
+        ORDER BY w.created_at DESC
     """)).mappings().all()
 
-    for row in participants:
-        date_key = str(row["win_date"])
-        history.setdefault(date_key, []).append({
-            "type": "participant",
-            "winner": row
-        })
-
-    # 🟢 All token winners
-    winnings = db.execute(text("""
-        SELECT 
+    winning_rows = db.execute(text("""
+        SELECT
             w.created_at::date AS win_date,
-            w.*,
+            w.token_id,
             u.username,
             u.profile_image
         FROM lottery_winner w
         JOIN users u ON u.id = w.users_id
-        ORDER BY win_date DESC, w.id DESC
+        ORDER BY w.created_at DESC
     """)).mappings().all()
 
-    for row in winnings:
-        date_key = str(row["win_date"])
-        history.setdefault(date_key, []).append({
-            "type": "winning",
-            "winner": row
+    db.close()
+
+    grouped = defaultdict(list)
+
+    for r in participant_rows:
+        grouped[str(r["win_date"])].append({
+            "type": "participant",
+            "username": r["username"],
+            "profile_image": r["profile_image"],
+            "token": r["token_id"]
         })
 
-    db.close()
-    return history
+    for r in winning_rows:
+        grouped[str(r["win_date"])].append({
+            "type": "winner",
+            "username": r["username"],
+            "profile_image": r["profile_image"],
+            "token": r["token_id"]
+        })
+
+    # ✅ SORT DATE KEYS (latest first)
+    sorted_result = dict(
+        sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+    )
+
+    return sorted_result
