@@ -58,47 +58,54 @@ def get_current_lottery_winners():
 # def lottery_history():
 #     db = SessionLocal()
 
-#     rows = db.execute(text("""
-#         -- PARTICIPANTS
+#     participant_rows = db.execute(text("""
 #         SELECT
-#             p.created_at::date AS draw_date,
-#             p.token_id,
-#             u.username,
-#             u.profile_image,
-#             'participant' AS type
-#         FROM participant_lottery_winner p
-#         JOIN users u ON u.id = p.users_id
-
-#         UNION ALL
-
-#         -- WINNERS
-#         SELECT
-#             w.created_at::date AS draw_date,
+#             w.created_at::date AS win_date,
 #             w.token_id,
 #             u.username,
-#             u.profile_image,
-#             'winner' AS type
+#             u.profile_image
+#         FROM participant_lottery_winner w
+#         JOIN users u ON u.id = w.users_id
+#         ORDER BY w.created_at DESC
+#     """)).mappings().all()
+
+#     winning_rows = db.execute(text("""
+#         SELECT
+#             w.created_at::date AS win_date,
+#             w.token_id,
+#             u.username,
+#             u.profile_image
 #         FROM lottery_winner w
 #         JOIN users u ON u.id = w.users_id
-
-#         ORDER BY draw_date DESC
+#         ORDER BY w.created_at DESC
 #     """)).mappings().all()
 
 #     db.close()
 
-#     result = defaultdict(list)
+#     grouped = defaultdict(list)
 
-#     for r in rows:
-#         date_key = str(r["draw_date"])
-
-#         result[date_key].append({
-#             "type": r["type"],          # "participant" | "winner"
+#     for r in participant_rows:
+#         grouped[str(r["win_date"])].append({
+#             "type": "participant",
 #             "username": r["username"],
 #             "profile_image": r["profile_image"],
 #             "token": r["token_id"]
 #         })
 
-#     return dict(result)
+#     for r in winning_rows:
+#         grouped[str(r["win_date"])].append({
+#             "type": "winner",
+#             "username": r["username"],
+#             "profile_image": r["profile_image"],
+#             "token": r["token_id"]
+#         })
+
+#     # ✅ SORT DATE KEYS (latest first)
+#     sorted_result = dict(
+#         sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+#     )
+
+#     return sorted_result
 
 
 @router.get("/history")
@@ -107,13 +114,22 @@ def lottery_history():
 
     participant_rows = db.execute(text("""
         SELECT
-            w.created_at::date AS win_date,
-            w.token_id,
+            p.created_at::date AS win_date,
+            p.token_id,
             u.username,
-            u.profile_image
-        FROM participant_lottery_winner w
-        JOIN users u ON u.id = w.users_id
-        ORDER BY w.created_at DESC
+            u.profile_image,
+            p.lottery_id AS lottery_id, 
+            CASE
+                WHEN rc.id IS NOT NULL THEN true
+                ELSE false
+            END AS is_claimed
+        FROM participant_lottery_winner p
+        JOIN users u ON u.id = p.users_id
+        LEFT JOIN reward_claims rc
+            ON rc.user_id = p.users_id
+            AND rc.lottery_id = p.lottery_id  
+            AND rc.claim_type = 'participant'
+        ORDER BY p.created_at DESC
     """)).mappings().all()
 
     winning_rows = db.execute(text("""
@@ -121,9 +137,18 @@ def lottery_history():
             w.created_at::date AS win_date,
             w.token_id,
             u.username,
-            u.profile_image
+            u.profile_image,
+            w.lotteries_id AS lottery_id,
+            CASE
+                WHEN rc.id IS NOT NULL THEN true
+                ELSE false
+            END AS is_claimed
         FROM lottery_winner w
         JOIN users u ON u.id = w.users_id
+        LEFT JOIN reward_claims rc
+            ON rc.user_id = w.users_id
+            AND rc.lottery_id = w.lotteries_id
+            AND rc.claim_type = 'winning'
         ORDER BY w.created_at DESC
     """)).mappings().all()
 
@@ -136,7 +161,9 @@ def lottery_history():
             "type": "participant",
             "username": r["username"],
             "profile_image": r["profile_image"],
-            "token": r["token_id"]
+            "token": r["token_id"],
+            "lottery_id": r["lottery_id"],
+            "is_claimed": r["is_claimed"]
         })
 
     for r in winning_rows:
@@ -144,10 +171,12 @@ def lottery_history():
             "type": "winner",
             "username": r["username"],
             "profile_image": r["profile_image"],
-            "token": r["token_id"]
+            "token": r["token_id"],
+            "lottery_id": r["lottery_id"],
+            "is_claimed": r["is_claimed"]
         })
 
-    # ✅ SORT DATE KEYS (latest first)
+    # ✅ latest date first
     sorted_result = dict(
         sorted(grouped.items(), key=lambda x: x[0], reverse=True)
     )
