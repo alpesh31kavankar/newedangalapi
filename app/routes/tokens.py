@@ -270,7 +270,7 @@ def verify_ticket(
 
     # Determine claimed_at based on source rules
     claimed_at = None
-    if token.source in ["vote", "daily_lucky_draw", "C_referral", "claim", "C_referral_bonus"]:
+    if token.source in ["vote", "daily_lucky_draw", "C_referral", "claim", "C_referral_bonus", "C_spin","monthly_reward"]:
         claimed_at = format_dt(token.created_at)
 
     # Prepare result object
@@ -318,7 +318,15 @@ def verify_ticket(
 
     elif token.source in ["daily_lucky_draw"]:
         result["source"] = "Daily Lucky Draw"
-        result["lucky_draw_result"] = "🏆 Won"
+        result["lucky_draw_result"] = "🏆 Daily Lucky Draw Won"
+
+    elif token.source == "monthly_reward":
+        result["source"] = "Monthly Reward"
+        result["lucky_draw_result"] = "🏅 Top 3 Monthly Winner"
+
+    elif token.source == "C_spin":
+        result["source"] = "Spin Wheel"
+        result["lucky_draw_result"] = "🎡 Won from Spin Wheel"
 
     elif token.source in ["C_referral", "C_referral_bonus", "referral_bonus"]:
         result["source"] = "Referral"
