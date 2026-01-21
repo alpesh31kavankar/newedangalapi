@@ -44,6 +44,8 @@ from app.routes import main_categories
 from app.services.leaderboard_rank_updater import start_leaderboard_scheduler
 from app.services.daily_question_cron import pick_daily_question
 from app.routes import results,randamqty,daily_question,daily_question_answer
+from app.routes import category_vote_reason
+from app.routes.opinion_routes import router as opinion_router
 # from app.routes import auth
 # from app.routes import tokens
 # ------------------------------
@@ -125,6 +127,8 @@ app.include_router(product_sur_que.router)      # ✅ Register product survey qu
 app.include_router(product_sur_resp.router) 
 
 app.include_router(main_categories.router)
+app.include_router(category_vote_reason.router)
+app.include_router(opinion_router)
 
 print(app.routes)
 for route in app.routes:
@@ -145,13 +149,13 @@ def startup_event():
     scheduler.add_job(generate_question_rounds, "interval", minutes=1)
     scheduler.add_job(finalize_rounds, "interval", minutes=1)
       # new job: run daily lottery at 20:00 (8 PM server time)
-    scheduler.add_job(perform_daily_lottery, "cron", hour=22, minute=25, timezone=ist)
+    scheduler.add_job(perform_daily_lottery, "cron", hour=22, minute=30, timezone=ist)
     scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18, timezone=ist)
     scheduler.add_job(
     perform_daily_participant_lottery,
     trigger="cron",
     hour=22,
-    minute=25,
+    minute=30,
     id="participant_lottery_cron",
     replace_existing=True,
     timezone=ist
