@@ -9,6 +9,8 @@ from ..models.token import Token
 from ..schemas.vote import VoteCreate, VoteOut
 from ..routes.auth import get_current_user
 from ..models.user import User
+from sqlalchemy import distinct
+from datetime import date, timedelta
 
 router = APIRouter(prefix="/votes", tags=["votes"])
 
@@ -172,3 +174,30 @@ def cast_vote(
     db.commit()
     db.refresh(new_vote)
     return new_vote
+
+
+@router.get("/active-users", tags=["votes"])
+def get_active_users(
+    db: Session = Depends(get_db)
+):
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    today_count = db.query(
+        func.count(distinct(Vote.users_id))
+    ).filter(
+        Vote.created_at >= today,
+        Vote.created_at < today + timedelta(days=1)
+    ).scalar()
+
+    yesterday_count = db.query(
+        func.count(distinct(Vote.users_id))
+    ).filter(
+        Vote.created_at >= yesterday,
+        Vote.created_at < today
+    ).scalar()
+
+    return {
+        "today": today_count,
+        "yesterday": yesterday_count
+    }
