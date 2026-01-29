@@ -9,14 +9,20 @@ from app.models.ticket_reward import TicketReward
 from app.models.daily_ticket_claim import DailyTicketClaim
 from app.models.token import Token
 from ..routes.auth import get_current_user  # Your auth dependency
+IST = pytz.timezone("Asia/Kolkata")  # ✅ ADD
 
 router = APIRouter(prefix="/daily-rewards", tags=["Daily Rewards"])
 
 # ---------------------------
 # Token generation functions
 # ---------------------------
+# def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
+#     today_str = datetime.utcnow().strftime("%Y%m%d")
+#     next_seq = last_seq + 1
+#     return f"{token_type}{today_str}{next_seq:04d}", next_seq
+
 def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
-    today_str = datetime.utcnow().strftime("%Y%m%d")
+    today_str = datetime.now(IST).strftime("%Y%m%d")  # ✅ CHANGED
     next_seq = last_seq + 1
     return f"{token_type}{today_str}{next_seq:04d}", next_seq
 
@@ -26,7 +32,10 @@ def get_last_token_seq(db: Session, token_type: str) -> int:
         db.query(Token)
         .filter(
             Token.token_type == token_type,
-            Token.token_id.like(f"{token_type}{datetime.utcnow().strftime('%Y%m%d')}%")
+            # Token.token_id.like(f"{token_type}{datetime.utcnow().strftime('%Y%m%d')}%")
+            Token.token_id.like(
+                f"{token_type}{datetime.now(IST).strftime('%Y%m%d')}%"
+            )
         )
         .order_by(Token.token_id.desc())
         .first()

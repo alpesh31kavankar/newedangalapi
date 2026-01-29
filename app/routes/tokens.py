@@ -14,6 +14,9 @@ from ..models.question_round import QuestionRound
 from ..models.product import Product
 from datetime import date
 from sqlalchemy import cast, Date
+import pytz
+from datetime import datetime, timezone
+
 
 
 router = APIRouter(prefix="/tokens", tags=["tokens"])
@@ -86,12 +89,15 @@ def get_participation_tokens(
     Fetch all participation (P) tokens for the logged-in user,
     along with question text from Questions.
     """
-    today = date.today()
+    # today = date.today()
+    IST = pytz.timezone("Asia/Kolkata")
+    today_ist = datetime.now(IST).date()   
+
     tokens = (
         db.query(Token, QuestionRound, Question)
         .join(QuestionRound, Token.question_rounds_id == QuestionRound.id)
         .join(Question, QuestionRound.questions_id == Question.id)   # 👈 join questions table
-        .filter(Token.users_id == current_user.id, Token.token_type == "P",cast(Token.created_at, Date) == today )
+        .filter(Token.users_id == current_user.id, Token.token_type == "P",cast(Token.created_at, Date) == today_ist )
         .all()
     )
 
@@ -119,7 +125,9 @@ def get_participation_tokens(
     - 'daily_lucky_draw' → lucky draw rewards
     - 'C_spin' → claimed spin rewards
     """
-    today = date.today()
+    # today = date.today()
+    IST = pytz.timezone("Asia/Kolkata")
+    today_ist = datetime.now(IST).date()   
 
     # 1️⃣ Claim tokens (linked to questions)
     claim_tokens = (
@@ -130,7 +138,7 @@ def get_participation_tokens(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source == "claim",
-            cast(Token.created_at, Date) == today
+            cast(Token.created_at, Date) == today_ist
         )
         .all()
     )
@@ -155,7 +163,7 @@ def get_participation_tokens(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source.in_(["C_referral_bonus", "C_referral"]),
-            cast(Token.created_at, Date) == today
+            cast(Token.created_at, Date) == today_ist
         )
         .all()
     )
@@ -180,7 +188,7 @@ def get_participation_tokens(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source == "daily_lucky_draw",
-            cast(Token.created_at, Date) == today
+            cast(Token.created_at, Date) == today_ist
         )
         .all()
     )
@@ -203,7 +211,7 @@ def get_participation_tokens(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source == "C_spin",
-            cast(Token.created_at, Date) == today
+            cast(Token.created_at, Date) == today_ist
         )
         .all()
     )
@@ -227,7 +235,7 @@ def get_participation_tokens(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source == "monthly_reward",
-            cast(Token.created_at, Date) == today
+            cast(Token.created_at, Date) == today_ist
         )
         .all()
     )

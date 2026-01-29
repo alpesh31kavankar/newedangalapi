@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
@@ -67,17 +67,46 @@ def perform_daily_lottery():
         db.execute(insert_entries_sql, {"lottery_id": lottery_id, "today": today, "now_ist": now_ist})
         print("[Lottery Cron] Inserted eligible tokens into lottery_entries (if any)")
 
-        # 3) Pick one random winner for this lottery
+        # # 3) Pick one random winner for this lottery
+        # insert_winner_sql = text("""
+        #     INSERT INTO lottery_winner (lotteries_id, users_id, token_id, created_at)
+        #     SELECT le.lotteries_id, le.users_id, le.token_id, :now_ist
+        #     FROM lottery_entries le
+        #     WHERE le.lotteries_id = :lottery_id
+        #     ORDER BY RANDOM()
+        #     LIMIT 1
+        #     ON CONFLICT (lotteries_id) DO NOTHING
+        # """)
+        # db.execute(insert_winner_sql, {"lottery_id": lottery_id, "now_ist": now_ist})
+
+# 3) Pick one random winner (excluding last 5 days winners)
+
+        last_5_days = today - timedelta(days=5)
+
         insert_winner_sql = text("""
             INSERT INTO lottery_winner (lotteries_id, users_id, token_id, created_at)
             SELECT le.lotteries_id, le.users_id, le.token_id, :now_ist
             FROM lottery_entries le
             WHERE le.lotteries_id = :lottery_id
+            AND le.users_id NOT IN (
+                SELECT DISTINCT lw.users_id
+                FROM lottery_winner lw
+                JOIN lotteries l ON l.id = lw.lotteries_id
+                WHERE l.lottery_date >= :last_5_days
+                    AND l.lottery_date < :today
+            )
             ORDER BY RANDOM()
             LIMIT 1
             ON CONFLICT (lotteries_id) DO NOTHING
         """)
-        db.execute(insert_winner_sql, {"lottery_id": lottery_id, "now_ist": now_ist})
+
+        db.execute(insert_winner_sql, {
+            "lottery_id": lottery_id,
+            "now_ist": now_ist,
+            "last_5_days": last_5_days,
+            "today": today
+        })
+
 
         # 4) Mark lottery as completed
         db.execute(text("""

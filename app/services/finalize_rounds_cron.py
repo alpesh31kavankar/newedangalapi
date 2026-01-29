@@ -7,14 +7,25 @@ from ..models.vote import Vote
 from ..models.token import Token
 import pytz
 
+IST = pytz.timezone("Asia/Kolkata")
+
+
 # Finalization active hour (after 8 PM IST)
 FINALIZE_HOUR = 22# 8 PM IST
 
+# def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
+#     """Generate next token id based on last sequence."""
+#     today_str = datetime.utcnow().strftime("%Y%m%d")
+#     next_seq = last_seq + 1
+#     return f"{token_type}{today_str}{next_seq:04d}", next_seq
 def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
-    """Generate next token id based on last sequence."""
-    today_str = datetime.utcnow().strftime("%Y%m%d")
+    """
+    Generate next token id based on TODAY (IST)
+    """
+    today_str = datetime.now(IST).strftime("%Y%m%d")  # ✅ CHANGED
     next_seq = last_seq + 1
     return f"{token_type}{today_str}{next_seq:04d}", next_seq
+
 
 def finalize_rounds():
     db: Session = SessionLocal()
@@ -37,11 +48,13 @@ def finalize_rounds():
             print("✅ No unlocked rounds to finalize")
             return
 
+        today_str = datetime.now(IST).strftime("%Y%m%d")  # ✅ ADD ABOVE
+        # .filter(Token.token_id.like("W" + datetime.utcnow().strftime("%Y%m%d") + "%"))
         # Get last W token seq for today
         last_token = (
             db.query(Token)
             .filter(Token.token_type == 'W')
-            .filter(Token.token_id.like("W" + datetime.utcnow().strftime("%Y%m%d") + "%"))
+            .filter(Token.token_id.like(f"W{today_str}%"))
             .order_by(Token.token_id.desc())
             .first()
         )

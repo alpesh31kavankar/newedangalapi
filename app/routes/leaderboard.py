@@ -5,6 +5,8 @@ import pytz
 
 from .. import models, schemas
 from ..database import get_db
+IST = pytz.timezone("Asia/Kolkata")  # ✅ ADD
+
 
 router = APIRouter(prefix="/leaderboard", tags=["Leaderboard"])
 
@@ -12,16 +14,23 @@ router = APIRouter(prefix="/leaderboard", tags=["Leaderboard"])
 # -----------------------------------------------------
 # 🔹 Helper functions for token generation
 # -----------------------------------------------------
+# def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
+#     """Generates next token id like W202510190001"""
+#     today_str = datetime.utcnow().strftime("%Y%m%d")
+#     next_seq = last_seq + 1
+#     return f"{token_type}{today_str}{next_seq:04d}", next_seq
+
 def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
-    """Generates next token id like W202510190001"""
-    today_str = datetime.utcnow().strftime("%Y%m%d")
+    today_str = datetime.now(IST).strftime("%Y%m%d")  # ✅ CHANGED
     next_seq = last_seq + 1
     return f"{token_type}{today_str}{next_seq:04d}", next_seq
 
 
+
 def get_last_token_seq(db: Session, token_type: str) -> int:
     """Finds last token number for today"""
-    today_str = datetime.utcnow().strftime("%Y%m%d")
+    # today_str = datetime.utcnow().strftime("%Y%m%d")
+    today_str = datetime.now(IST).strftime("%Y%m%d") 
     last_token = (
         db.query(models.Token)
         .filter(

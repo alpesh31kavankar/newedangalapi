@@ -10,6 +10,7 @@ from fastapi.routing import APIRoute
 routes_info = []
 import pytz  # Import pytz for time zone management
 from datetime import datetime, timezone
+from app.services.scheduler import rotate_daily_gift
 
 
 # ------------------------------
@@ -149,6 +150,16 @@ def startup_event():
     scheduler.add_job(generate_question_rounds, "interval", minutes=1)
     scheduler.add_job(finalize_rounds, "interval", minutes=1)
       # new job: run daily lottery at 20:00 (8 PM server time)
+     # ✅ DAILY gift rotation at 00:00 IST
+    # scheduler.add_job(
+    #     rotate_daily_gift,
+    #     trigger="cron",
+    #     hour=0,
+    #     minute=0,
+    #     timezone=ist,
+    #     id="rotate_daily_gift_cron",
+    #     replace_existing=True
+    # )
     scheduler.add_job(perform_daily_lottery, "cron", hour=22, minute=30, timezone=ist)
     scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18, timezone=ist)
     scheduler.add_job(

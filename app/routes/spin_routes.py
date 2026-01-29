@@ -14,28 +14,57 @@ from ..routes.auth import get_current_user  # auth dependency
 
 router = APIRouter(prefix="/spin", tags=["Spin & Win"])
 
+# 🇮🇳 IST timezone (single source of truth)
+IST = pytz.timezone("Asia/Kolkata")
 
 # ---------------------------
 # Token generation helpers
 # ---------------------------
+# def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
+#     """Generate the next sequential token ID for today's date."""
+#     today_str = datetime.utcnow().strftime("%Y%m%d")
+#     next_seq = last_seq + 1
+#     return f"{token_type}{today_str}{next_seq:04d}", next_seq
+
+
+# def get_last_token_seq(db: Session, token_type: str) -> int:
+#     """Get the last sequence number for today for a given token type."""
+#     last_token = (
+#         db.query(Token)
+#         .filter(
+#             Token.token_type == token_type,
+#             Token.token_id.like(f"{token_type}{datetime.utcnow().strftime('%Y%m%d')}%")
+#         )
+#         .order_by(Token.token_id.desc())
+#         .first()
+#     )
+#     return int(last_token.token_id[-4:]) if last_token else 0
+
 def generate_token_id_next(token_type: str, last_seq: int) -> tuple[str, int]:
-    """Generate the next sequential token ID for today's date."""
-    today_str = datetime.utcnow().strftime("%Y%m%d")
+    """
+    Generate the next sequential token ID for TODAY (IST).
+    """
+    today_str = datetime.now(IST).strftime("%Y%m%d")  # ✅ IST
     next_seq = last_seq + 1
     return f"{token_type}{today_str}{next_seq:04d}", next_seq
 
 
 def get_last_token_seq(db: Session, token_type: str) -> int:
-    """Get the last sequence number for today for a given token type."""
+    """
+    Get the last sequence number for TODAY (IST).
+    """
+    today_str = datetime.now(IST).strftime("%Y%m%d")  # ✅ IST
+
     last_token = (
         db.query(Token)
         .filter(
             Token.token_type == token_type,
-            Token.token_id.like(f"{token_type}{datetime.utcnow().strftime('%Y%m%d')}%")
+            Token.token_id.like(f"{token_type}{today_str}%")
         )
         .order_by(Token.token_id.desc())
         .first()
     )
+
     return int(last_token.token_id[-4:]) if last_token else 0
 
 

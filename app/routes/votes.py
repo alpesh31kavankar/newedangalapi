@@ -10,7 +10,10 @@ from ..schemas.vote import VoteCreate, VoteOut
 from ..routes.auth import get_current_user
 from ..models.user import User
 from sqlalchemy import distinct
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+import pytz
+IST = pytz.timezone("Asia/Kolkata")
+
 
 router = APIRouter(prefix="/votes", tags=["votes"])
 
@@ -89,7 +92,8 @@ def cast_vote(
 
     if not existing_token:
         # Generate next P token sequence for today
-        today_str = datetime.utcnow().strftime("%Y%m%d")
+        # today_str = datetime.utcnow().strftime("%Y%m%d")
+        today_str = datetime.now(IST).strftime("%Y%m%d")  # ✅ CHANGED
         last_token = (
             db.query(Token)
             .filter(Token.token_type == 'P')
@@ -142,7 +146,8 @@ def cast_vote(
             ).all()
 
             # Get last W token seq for today
-            today_str = datetime.utcnow().strftime("%Y%m%d")
+            # today_str = datetime.utcnow().strftime("%Y%m%d")
+            today_str = datetime.now(IST).strftime("%Y%m%d")  # ✅ CHANGED
             last_token = (
                 db.query(Token)
                 .filter(Token.token_type == 'W')

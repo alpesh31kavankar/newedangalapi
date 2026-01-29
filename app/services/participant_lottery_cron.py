@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
@@ -73,18 +73,49 @@ def perform_daily_participant_lottery():
         db.execute(insert_entries_sql, {"lottery_id": lottery_id, "today": today, "now_ist": now_ist})
         print("[Participant Lottery Cron] ✅ Inserted eligible participant tokens")
 
-        # 4️⃣ Pick one random participant winner (if not already chosen)
+        # # 4️⃣ Pick one random participant winner (if not already chosen)
+        # insert_winner_sql = text("""
+        #     INSERT INTO participant_lottery_winner (lottery_id, users_id, token_id, created_at)
+        #     SELECT ple.lottery_id, ple.users_id, ple.token_id, :now_ist
+        #     FROM participant_lottery_entries ple
+        #     WHERE ple.lottery_id = :lottery_id
+        #     ORDER BY RANDOM()
+        #     LIMIT 1
+        #     ON CONFLICT (lottery_id) DO NOTHING
+        # """)
+        # db.execute(insert_winner_sql, {"lottery_id": lottery_id, "now_ist": now_ist})
+        # print("[Participant Lottery Cron] 🏆 Picked participant winner (if not already selected)")
+
+        # 4️⃣ Pick one random participant winner (excluding last 5 days winners)
+
+        last_5_days = today - timedelta(days=5)
+
         insert_winner_sql = text("""
             INSERT INTO participant_lottery_winner (lottery_id, users_id, token_id, created_at)
             SELECT ple.lottery_id, ple.users_id, ple.token_id, :now_ist
             FROM participant_lottery_entries ple
             WHERE ple.lottery_id = :lottery_id
+            AND ple.users_id NOT IN (
+                SELECT DISTINCT pw.users_id
+                FROM participant_lottery_winner pw
+                JOIN participant_lotteries pl ON pl.id = pw.lottery_id
+                WHERE pl.lottery_date >= :last_5_days
+                    AND pl.lottery_date < :today
+            )
             ORDER BY RANDOM()
             LIMIT 1
             ON CONFLICT (lottery_id) DO NOTHING
         """)
-        db.execute(insert_winner_sql, {"lottery_id": lottery_id, "now_ist": now_ist})
-        print("[Participant Lottery Cron] 🏆 Picked participant winner (if not already selected)")
+
+        db.execute(insert_winner_sql, {
+            "lottery_id": lottery_id,
+            "now_ist": now_ist,
+            "last_5_days": last_5_days,
+            "today": today
+        })
+
+        print("[Participant Lottery Cron] 🏆 Picked participant winner (excluding last 5 days)")
+
 
         # 5️⃣ Mark participant lottery as completed
         db.execute(text("""
