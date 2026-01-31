@@ -80,6 +80,45 @@ def get_tokens_by_user_and_type(user_id: int, token_type: str, db: Session = Dep
         raise HTTPException(status_code=404, detail=f"No {token_type} tokens found for user")
     return tokens
 
+# @router.get("/participation")
+# def get_participation_tokens(
+#     db: Session = Depends(get_db),
+#     current_user: User = Depends(get_current_user)
+# ):
+#     """
+#     Fetch all participation (P) tokens for the logged-in user,
+#     along with question text from Questions.
+#     """
+#     # today = date.today()
+#     IST = pytz.timezone("Asia/Kolkata")
+#     today_ist = datetime.now(IST).date()   
+
+#     tokens = (
+#         db.query(Token, QuestionRound, Question)
+#         .join(QuestionRound, Token.question_rounds_id == QuestionRound.id)
+#         .join(Question, QuestionRound.questions_id == Question.id)   # 👈 join questions table
+#         .filter(Token.users_id == current_user.id, Token.token_type == "P",cast(Token.created_at, Date) == today_ist )
+#         .all()
+#     )
+
+#     result = []
+#     for token, question_round, question in tokens:
+#         result.append({
+#             "token_id": token.token_id,
+#             "question_rounds_id": token.question_rounds_id,
+#             "product_id": token.product_id,
+#             "question_text": question.question_text,   # 👈 now comes from Questions
+#             "created_at": token.created_at,
+#         })
+
+#     return result
+
+
+from datetime import datetime, time, timedelta
+import pytz
+from sqlalchemy.orm import Session
+from sqlalchemy import and_
+
 @router.get("/participation")
 def get_participation_tokens(
     db: Session = Depends(get_db),
@@ -87,49 +126,88 @@ def get_participation_tokens(
 ):
     """
     Fetch all participation (P) tokens for the logged-in user,
-    along with question text from Questions.
+    based on IST day but queried safely in UTC.
     """
-    # today = date.today()
-    IST = pytz.timezone("Asia/Kolkata")
-    today_ist = datetime.now(IST).date()   
 
+    # -----------------------------
+    # 1️⃣ IST timezone
+    # -----------------------------
+    IST = pytz.timezone("Asia/Kolkata")
+
+    # 2️⃣ Today in IST
+    today_ist = datetime.now(IST).date()
+
+    # 3️⃣ IST day start & end (timezone-aware)
+    start_ist = datetime.combine(today_ist, time.min).replace(tzinfo=IST)
+    end_ist = start_ist + timedelta(days=1)
+
+    # 4️⃣ Convert IST → UTC (DB timezone)
+    start_utc = start_ist.astimezone(pytz.UTC)
+    end_utc = end_ist.astimezone(pytz.UTC)
+
+    # -----------------------------
+    # 5️⃣ Query using UTC range
+    # -----------------------------
     tokens = (
         db.query(Token, QuestionRound, Question)
         .join(QuestionRound, Token.question_rounds_id == QuestionRound.id)
-        .join(Question, QuestionRound.questions_id == Question.id)   # 👈 join questions table
-        .filter(Token.users_id == current_user.id, Token.token_type == "P",cast(Token.created_at, Date) == today_ist )
+        .join(Question, QuestionRound.questions_id == Question.id)
+        .filter(
+            Token.users_id == current_user.id,
+            Token.token_type == "P",
+            Token.created_at >= start_utc,
+            Token.created_at < end_utc
+        )
         .all()
     )
 
+    # -----------------------------
+    # 6️⃣ Build response
+    # -----------------------------
     result = []
     for token, question_round, question in tokens:
         result.append({
             "token_id": token.token_id,
             "question_rounds_id": token.question_rounds_id,
             "product_id": token.product_id,
-            "question_text": question.question_text,   # 👈 now comes from Questions
-            "created_at": token.created_at,
+            "question_text": question.question_text,
+            "created_at": token.created_at,  # still UTC (frontend can convert)
         })
 
     return result
 
+
 @router.get("/winning")
-def get_participation_tokens(
+def get_winning_tokens(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Fetch all today's W tokens for the logged-in user:
-    - 'claim' tokens → linked to questions
-    - 'C_referral_bonus' and 'C_referral' → referral tokens
-    - 'daily_lucky_draw' → lucky draw rewards
-    - 'C_spin' → claimed spin rewards
+    Fetch all today's W tokens for the logged-in user (IST-safe):
+    - claim
+    - referral
+    - daily_lucky_draw
+    - C_spin
+    - monthly_reward
     """
-    # today = date.today()
-    IST = pytz.timezone("Asia/Kolkata")
-    today_ist = datetime.now(IST).date()   
 
-    # 1️⃣ Claim tokens (linked to questions)
+    # -----------------------------
+    # 1️⃣ IST → UTC day range
+    # -----------------------------
+    IST = pytz.timezone("Asia/Kolkata")
+    today_ist = datetime.now(IST).date()
+
+    start_ist = datetime.combine(today_ist, time.min).replace(tzinfo=IST)
+    end_ist = start_ist + timedelta(days=1)
+
+    start_utc = start_ist.astimezone(pytz.UTC)
+    end_utc = end_ist.astimezone(pytz.UTC)
+
+    result = []
+
+    # -----------------------------
+    # 2️⃣ Claim tokens (linked to questions)
+    # -----------------------------
     claim_tokens = (
         db.query(Token, QuestionRound, Question)
         .join(QuestionRound, Token.question_rounds_id == QuestionRound.id)
@@ -138,13 +216,13 @@ def get_participation_tokens(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source == "claim",
-            cast(Token.created_at, Date) == today_ist
+            Token.created_at >= start_utc,
+            Token.created_at < end_utc
         )
         .all()
     )
 
-    # Map claim tokens
-    result = [
+    result.extend([
         {
             "token_id": token.token_id,
             "question_rounds_id": token.question_rounds_id,
@@ -154,22 +232,24 @@ def get_participation_tokens(
             "source": token.source
         }
         for token, question_round, question in claim_tokens
-    ]
+    ])
 
-    # 2️⃣ Referral tokens (not linked to questions)
+    # -----------------------------
+    # 3️⃣ Referral tokens
+    # -----------------------------
     referral_tokens = (
         db.query(Token)
         .filter(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source.in_(["C_referral_bonus", "C_referral"]),
-            cast(Token.created_at, Date) == today_ist
+            Token.created_at >= start_utc,
+            Token.created_at < end_utc
         )
         .all()
     )
 
-    # Map referral tokens
-    result += [
+    result.extend([
         {
             "token_id": t.token_id,
             "question_rounds_id": None,
@@ -179,21 +259,24 @@ def get_participation_tokens(
             "source": t.source
         }
         for t in referral_tokens
-    ]
+    ])
 
-        # 3️⃣ Daily Lucky Draw tokens (new addition)
+    # -----------------------------
+    # 4️⃣ Daily Lucky Draw tokens
+    # -----------------------------
     lucky_draw_tokens = (
         db.query(Token)
         .filter(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source == "daily_lucky_draw",
-            cast(Token.created_at, Date) == today_ist
+            Token.created_at >= start_utc,
+            Token.created_at < end_utc
         )
         .all()
     )
 
-    result += [
+    result.extend([
         {
             "token_id": t.token_id,
             "question_rounds_id": None,
@@ -203,20 +286,24 @@ def get_participation_tokens(
             "source": t.source
         }
         for t in lucky_draw_tokens
-    ]
-        # 4️⃣ Claimed Spin Tokens (C_spin)
-    spin_claim_tokens = (
+    ])
+
+    # -----------------------------
+    # 5️⃣ Claimed Spin tokens
+    # -----------------------------
+    spin_tokens = (
         db.query(Token)
         .filter(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source == "C_spin",
-            cast(Token.created_at, Date) == today_ist
+            Token.created_at >= start_utc,
+            Token.created_at < end_utc
         )
         .all()
     )
 
-    result += [
+    result.extend([
         {
             "token_id": t.token_id,
             "question_rounds_id": None,
@@ -225,22 +312,25 @@ def get_participation_tokens(
             "created_at": t.created_at,
             "source": t.source
         }
-        for t in spin_claim_tokens
-    ]
+        for t in spin_tokens
+    ])
 
-        # 5️⃣ Monthly Reward Tokens
-    monthly_reward_tokens = (
+    # -----------------------------
+    # 6️⃣ Monthly reward tokens
+    # -----------------------------
+    monthly_tokens = (
         db.query(Token)
         .filter(
             Token.users_id == current_user.id,
             Token.token_type == "W",
             Token.source == "monthly_reward",
-            cast(Token.created_at, Date) == today_ist
+            Token.created_at >= start_utc,
+            Token.created_at < end_utc
         )
         .all()
     )
 
-    result += [
+    result.extend([
         {
             "token_id": t.token_id,
             "question_rounds_id": None,
@@ -249,11 +339,152 @@ def get_participation_tokens(
             "created_at": t.created_at,
             "source": t.source
         }
-        for t in monthly_reward_tokens
-    ]
-
+        for t in monthly_tokens
+    ])
 
     return result
+
+# @router.get("/winning")
+# def get_participation_tokens(
+#     db: Session = Depends(get_db),
+#     current_user: User = Depends(get_current_user)
+# ):
+#     """
+#     Fetch all today's W tokens for the logged-in user:
+#     - 'claim' tokens → linked to questions
+#     - 'C_referral_bonus' and 'C_referral' → referral tokens
+#     - 'daily_lucky_draw' → lucky draw rewards
+#     - 'C_spin' → claimed spin rewards
+#     """
+#     # today = date.today()
+#     IST = pytz.timezone("Asia/Kolkata")
+#     today_ist = datetime.now(IST).date()   
+
+#     # 1️⃣ Claim tokens (linked to questions)
+#     claim_tokens = (
+#         db.query(Token, QuestionRound, Question)
+#         .join(QuestionRound, Token.question_rounds_id == QuestionRound.id)
+#         .join(Question, QuestionRound.questions_id == Question.id)
+#         .filter(
+#             Token.users_id == current_user.id,
+#             Token.token_type == "W",
+#             Token.source == "claim",
+#             cast(Token.created_at, Date) == today_ist
+#         )
+#         .all()
+#     )
+
+#     # Map claim tokens
+#     result = [
+#         {
+#             "token_id": token.token_id,
+#             "question_rounds_id": token.question_rounds_id,
+#             "product_id": token.product_id,
+#             "question_text": question.question_text,
+#             "created_at": token.created_at,
+#             "source": token.source
+#         }
+#         for token, question_round, question in claim_tokens
+#     ]
+
+#     # 2️⃣ Referral tokens (not linked to questions)
+#     referral_tokens = (
+#         db.query(Token)
+#         .filter(
+#             Token.users_id == current_user.id,
+#             Token.token_type == "W",
+#             Token.source.in_(["C_referral_bonus", "C_referral"]),
+#             cast(Token.created_at, Date) == today_ist
+#         )
+#         .all()
+#     )
+
+#     # Map referral tokens
+#     result += [
+#         {
+#             "token_id": t.token_id,
+#             "question_rounds_id": None,
+#             "product_id": None,
+#             "question_text": None,
+#             "created_at": t.created_at,
+#             "source": t.source
+#         }
+#         for t in referral_tokens
+#     ]
+
+#         # 3️⃣ Daily Lucky Draw tokens (new addition)
+#     lucky_draw_tokens = (
+#         db.query(Token)
+#         .filter(
+#             Token.users_id == current_user.id,
+#             Token.token_type == "W",
+#             Token.source == "daily_lucky_draw",
+#             cast(Token.created_at, Date) == today_ist
+#         )
+#         .all()
+#     )
+
+#     result += [
+#         {
+#             "token_id": t.token_id,
+#             "question_rounds_id": None,
+#             "product_id": None,
+#             "question_text": None,
+#             "created_at": t.created_at,
+#             "source": t.source
+#         }
+#         for t in lucky_draw_tokens
+#     ]
+#         # 4️⃣ Claimed Spin Tokens (C_spin)
+#     spin_claim_tokens = (
+#         db.query(Token)
+#         .filter(
+#             Token.users_id == current_user.id,
+#             Token.token_type == "W",
+#             Token.source == "C_spin",
+#             cast(Token.created_at, Date) == today_ist
+#         )
+#         .all()
+#     )
+
+#     result += [
+#         {
+#             "token_id": t.token_id,
+#             "question_rounds_id": None,
+#             "product_id": None,
+#             "question_text": None,
+#             "created_at": t.created_at,
+#             "source": t.source
+#         }
+#         for t in spin_claim_tokens
+#     ]
+
+#         # 5️⃣ Monthly Reward Tokens
+#     monthly_reward_tokens = (
+#         db.query(Token)
+#         .filter(
+#             Token.users_id == current_user.id,
+#             Token.token_type == "W",
+#             Token.source == "monthly_reward",
+#             cast(Token.created_at, Date) == today_ist
+#         )
+#         .all()
+#     )
+
+#     result += [
+#         {
+#             "token_id": t.token_id,
+#             "question_rounds_id": None,
+#             "product_id": None,
+#             "question_text": None,
+#             "created_at": t.created_at,
+#             "source": t.source
+#         }
+#         for t in monthly_reward_tokens
+#     ]
+
+
+#     return result
 
 @router.get("/verify/{token_id}")
 def verify_ticket(

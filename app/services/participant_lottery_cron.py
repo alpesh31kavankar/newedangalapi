@@ -1,131 +1,136 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta, time
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
-import pytz  # Import pytz to handle time zones
+import pytz
 
 def perform_daily_participant_lottery():
     """
-    Participant Lottery Cron Job:
-    1. Fetch the active participant gift from p_gifts.
-    2. Ensure one participant_lotteries row exists for today's date.
-    3. Insert eligible tokens (source='vote') into participant_lottery_entries.
-       - Avoid duplicates (ON CONFLICT DO NOTHING works only if UNIQUE constraint exists).
-    4. Pick one random winner and insert into participant_lottery_winner.
-    5. Mark today's participant lottery as completed.
+    Participant Lottery Cron Job (IST-safe, UTC DB):
+    1. Fetch active participant gift
+    2. Ensure today's participant lottery exists (IST date)
+    3. Insert eligible vote tokens created TODAY in IST
+    4. Pick one winner (excluding last 5 days)
+    5. Mark lottery completed
     """
 
-    today = date.today()
-    print(f"[Participant Lottery Cron] Starting for {today}")
-
     db: Session = SessionLocal()
-    try:
-        db.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
-        # Define IST timezone
-        ist = pytz.timezone("Asia/Kolkata")
-        now_ist = datetime.now(ist)  # Get the current time in IST
 
-        # 1️⃣ Fetch active participant gift
+    try:
+        # -----------------------------
+        # 1️⃣ IST → UTC day window
+        # -----------------------------
+        IST = pytz.timezone("Asia/Kolkata")
+        today_ist = datetime.now(IST).date()
+
+        start_ist = datetime.combine(today_ist, time.min).replace(tzinfo=IST)
+        end_ist = start_ist + timedelta(days=1)
+
+        start_utc = start_ist.astimezone(pytz.UTC)
+        end_utc = end_ist.astimezone(pytz.UTC)
+
+        now_ist = datetime.now(IST)
+
+        print(f"[Participant Lottery Cron] Running for IST date {today_ist}")
+
+        # -----------------------------
+        # 2️⃣ Fetch active participant gift
+        # -----------------------------
         p_gift_id = db.execute(
             text("SELECT id FROM p_gifts WHERE status = 'active' LIMIT 1")
         ).scalar()
 
-        if p_gift_id is None:
-            print("[Participant Lottery Cron] ⚠️ No active participant gift found — skipping lottery.")
+        if not p_gift_id:
+            print("[Participant Lottery Cron] ⚠️ No active participant gift found — skipping.")
             return
 
-        print(f"[Participant Lottery Cron] Using active p_gift id = {p_gift_id}")
-
-        # 2️⃣ Ensure today's participant lottery exists
-        insert_lottery_sql = text("""
+        # -----------------------------
+        # 3️⃣ Create participant lottery if not exists
+        # -----------------------------
+        row = db.execute(text("""
             INSERT INTO participant_lotteries (lottery_date, lottery_round, p_gifts_id)
-            SELECT :today, 1, :p_gift_id
+            SELECT :today_ist, 1, :p_gift_id
             WHERE NOT EXISTS (
-                SELECT 1 FROM participant_lotteries WHERE lottery_date = :today
+                SELECT 1 FROM participant_lotteries WHERE lottery_date = :today_ist
             )
             RETURNING id
-        """)
-        res = db.execute(insert_lottery_sql, {"today": today, "p_gift_id": p_gift_id})
-        row = res.fetchone()
+        """), {
+            "today_ist": today_ist,
+            "p_gift_id": p_gift_id
+        }).fetchone()
 
         if row:
             lottery_id = row[0]
-            print(f"[Participant Lottery Cron] ✅ Created new participant lottery id={lottery_id}")
         else:
             lottery_id = db.execute(
-                text("SELECT id FROM participant_lotteries WHERE lottery_date = :today"),
-                {"today": today}
+                text("SELECT id FROM participant_lotteries WHERE lottery_date = :today_ist"),
+                {"today_ist": today_ist}
             ).scalar()
-            print(f"[Participant Lottery Cron] ℹ️ Participant lottery already exists (id={lottery_id})")
 
         if not lottery_id:
-            raise RuntimeError("Could not create or retrieve today's participant lottery.")
+            raise RuntimeError("Failed to create or fetch participant lottery")
 
-        # 3️⃣ Insert eligible participant tokens (source='vote')
-        insert_entries_sql = text("""
+        # -----------------------------
+        # 4️⃣ Insert eligible vote tokens (FIXED)
+        # -----------------------------
+        db.execute(text("""
             INSERT INTO participant_lottery_entries (lottery_id, token_id, users_id, created_at)
             SELECT :lottery_id, t.token_id, t.users_id, :now_ist
             FROM tokens t
             WHERE t.source = 'vote'
-              AND t.created_at::date = :today
+              AND t.created_at >= :start_utc
+              AND t.created_at < :end_utc
             ON CONFLICT (lottery_id, token_id) DO NOTHING
-        """)
-        db.execute(insert_entries_sql, {"lottery_id": lottery_id, "today": today, "now_ist": now_ist})
-        print("[Participant Lottery Cron] ✅ Inserted eligible participant tokens")
+        """), {
+            "lottery_id": lottery_id,
+            "now_ist": now_ist,
+            "start_utc": start_utc,
+            "end_utc": end_utc
+        })
 
-        # # 4️⃣ Pick one random participant winner (if not already chosen)
-        # insert_winner_sql = text("""
-        #     INSERT INTO participant_lottery_winner (lottery_id, users_id, token_id, created_at)
-        #     SELECT ple.lottery_id, ple.users_id, ple.token_id, :now_ist
-        #     FROM participant_lottery_entries ple
-        #     WHERE ple.lottery_id = :lottery_id
-        #     ORDER BY RANDOM()
-        #     LIMIT 1
-        #     ON CONFLICT (lottery_id) DO NOTHING
-        # """)
-        # db.execute(insert_winner_sql, {"lottery_id": lottery_id, "now_ist": now_ist})
-        # print("[Participant Lottery Cron] 🏆 Picked participant winner (if not already selected)")
+        print("[Participant Lottery Cron] ✅ Inserted eligible vote tokens")
 
-        # 4️⃣ Pick one random participant winner (excluding last 5 days winners)
+        # -----------------------------
+        # 5️⃣ Pick winner (exclude last 5 days)
+        # -----------------------------
+        last_5_days = today_ist - timedelta(days=5)
 
-        last_5_days = today - timedelta(days=5)
-
-        insert_winner_sql = text("""
+        db.execute(text("""
             INSERT INTO participant_lottery_winner (lottery_id, users_id, token_id, created_at)
             SELECT ple.lottery_id, ple.users_id, ple.token_id, :now_ist
             FROM participant_lottery_entries ple
             WHERE ple.lottery_id = :lottery_id
-            AND ple.users_id NOT IN (
-                SELECT DISTINCT pw.users_id
-                FROM participant_lottery_winner pw
-                JOIN participant_lotteries pl ON pl.id = pw.lottery_id
-                WHERE pl.lottery_date >= :last_5_days
-                    AND pl.lottery_date < :today
-            )
+              AND ple.users_id NOT IN (
+                  SELECT DISTINCT pw.users_id
+                  FROM participant_lottery_winner pw
+                  JOIN participant_lotteries pl ON pl.id = pw.lottery_id
+                  WHERE pl.lottery_date >= :last_5_days
+                    AND pl.lottery_date < :today_ist
+              )
             ORDER BY RANDOM()
             LIMIT 1
             ON CONFLICT (lottery_id) DO NOTHING
-        """)
-
-        db.execute(insert_winner_sql, {
+        """), {
             "lottery_id": lottery_id,
             "now_ist": now_ist,
             "last_5_days": last_5_days,
-            "today": today
+            "today_ist": today_ist
         })
 
-        print("[Participant Lottery Cron] 🏆 Picked participant winner (excluding last 5 days)")
-
-
-        # 5️⃣ Mark participant lottery as completed
+        # -----------------------------
+        # 6️⃣ Mark lottery completed
+        # -----------------------------
         db.execute(text("""
             UPDATE participant_lotteries
             SET is_completed = TRUE, updated_at = :now_ist
             WHERE id = :lottery_id
-        """), {"lottery_id": lottery_id, "now_ist": now_ist})
+        """), {
+            "lottery_id": lottery_id,
+            "now_ist": now_ist
+        })
 
         db.commit()
-        print(f"[Participant Lottery Cron] ✅ Completed successfully for {today}")
+        print(f"[Participant Lottery Cron] ✅ Completed for {today_ist}")
 
     except Exception as e:
         db.rollback()
