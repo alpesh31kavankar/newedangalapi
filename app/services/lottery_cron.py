@@ -87,7 +87,7 @@ def perform_daily_lottery():
         # -----------------------------
         # 5️⃣ Pick winner (exclude last 5 days)
         # -----------------------------
-        last_5_days = today_ist - timedelta(days=5)
+        last_5_days = today_ist - timedelta(days=8)
 
         db.execute(text("""
             INSERT INTO lottery_winner (lotteries_id, users_id, token_id, created_at)
