@@ -85,31 +85,44 @@ def perform_daily_lottery():
         })
 
         # -----------------------------
-        # 5️⃣ Pick winner (exclude last 5 days)
+        # 5️⃣ Pick winner (exclude last 8 days from BOTH lotteries)
         # -----------------------------
-        last_5_days = today_ist - timedelta(days=8)
+        last_8_days = today_ist - timedelta(days=12)
 
         db.execute(text("""
             INSERT INTO lottery_winner (lotteries_id, users_id, token_id, created_at)
             SELECT le.lotteries_id, le.users_id, le.token_id, :now_ist
             FROM lottery_entries le
             WHERE le.lotteries_id = :lottery_id
-              AND le.users_id NOT IN (
-                  SELECT DISTINCT lw.users_id
-                  FROM lottery_winner lw
-                  JOIN lotteries l ON l.id = lw.lotteries_id
-                  WHERE l.lottery_date >= :last_5_days
+
+            -- ❌ Exclude DAILY lottery winners (last 8 days)
+            AND le.users_id NOT IN (
+                SELECT DISTINCT lw.users_id
+                FROM lottery_winner lw
+                JOIN lotteries l ON l.id = lw.lotteries_id
+                WHERE l.lottery_date >= :last_8_days
                     AND l.lottery_date < :today_ist
-              )
+            )
+
+            -- ❌ Exclude PARTICIPANT lottery winners (last 8 days)
+            AND le.users_id NOT IN (
+                SELECT DISTINCT pw.users_id
+                FROM participant_lottery_winner pw
+                JOIN participant_lotteries pl ON pl.id = pw.lottery_id
+                WHERE pl.lottery_date >= :last_8_days
+                    AND pl.lottery_date < :today_ist
+            )
+
             ORDER BY RANDOM()
             LIMIT 1
             ON CONFLICT (lotteries_id) DO NOTHING
         """), {
             "lottery_id": lottery_id,
             "now_ist": now_ist,
-            "last_5_days": last_5_days,
+            "last_8_days": last_8_days,
             "today_ist": today_ist
         })
+
 
         # -----------------------------
         # 6️⃣ Mark lottery completed
