@@ -10,7 +10,7 @@ from ..schemas.vote import VoteCreate, VoteOut
 from ..routes.auth import get_current_user
 from ..models.user import User
 from sqlalchemy import distinct
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime,time
 import pytz
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -182,27 +182,143 @@ def cast_vote(
 
 
 @router.get("/active-users", tags=["votes"])
-def get_active_users(
-    db: Session = Depends(get_db)
-):
-    today = date.today()
-    yesterday = today - timedelta(days=1)
+def get_active_users(db: Session = Depends(get_db)):
 
+    IST = pytz.timezone("Asia/Kolkata")
+
+    # 1️⃣ IST dates
+    today_ist = datetime.now(IST).date()
+    yesterday_ist = today_ist - timedelta(days=1)
+
+    # 2️⃣ IST → UTC ranges
+    today_start_ist = IST.localize(datetime.combine(today_ist, time.min))
+    today_end_ist = today_start_ist + timedelta(days=1)
+
+    yesterday_start_ist = IST.localize(datetime.combine(yesterday_ist, time.min))
+    yesterday_end_ist = yesterday_start_ist + timedelta(days=1)
+
+    today_start_utc = today_start_ist.astimezone(pytz.UTC)
+    today_end_utc = today_end_ist.astimezone(pytz.UTC)
+
+    yesterday_start_utc = yesterday_start_ist.astimezone(pytz.UTC)
+    yesterday_end_utc = yesterday_end_ist.astimezone(pytz.UTC)
+
+    # 3️⃣ Queries
     today_count = db.query(
         func.count(distinct(Vote.users_id))
     ).filter(
-        Vote.created_at >= today,
-        Vote.created_at < today + timedelta(days=1)
+        Vote.created_at >= today_start_utc,
+        Vote.created_at < today_end_utc
     ).scalar()
 
     yesterday_count = db.query(
         func.count(distinct(Vote.users_id))
     ).filter(
-        Vote.created_at >= yesterday,
-        Vote.created_at < today
+        Vote.created_at >= yesterday_start_utc,
+        Vote.created_at < yesterday_end_utc
     ).scalar()
 
     return {
         "today": today_count,
         "yesterday": yesterday_count
     }
+
+
+@router.get("/stats/today", tags=["stats"])
+def today_stats(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    IST = pytz.timezone("Asia/Kolkata")
+
+    # -----------------------------
+    # 1️⃣ IST date
+    # -----------------------------
+    today_ist = datetime.now(IST).date()
+
+    # -----------------------------
+    # 2️⃣ IST → UTC range
+    # -----------------------------
+    today_start_ist = IST.localize(
+        datetime.combine(today_ist, time.min)
+    )
+    today_end_ist = today_start_ist + timedelta(days=1)
+
+    today_start_utc = today_start_ist.astimezone(pytz.UTC)
+    today_end_utc = today_end_ist.astimezone(pytz.UTC)
+
+    # -----------------------------
+    # 3️⃣ Joined
+    # -----------------------------
+    joined = db.query(Vote).filter(
+        Vote.users_id == current_user.id,
+        Vote.created_at >= today_start_utc,
+        Vote.created_at < today_end_utc
+    ).count()
+
+    # -----------------------------
+    # 4️⃣ Results (won / lost / tie)
+    # -----------------------------
+    rounds = (
+        db.query(
+            QuestionRound.id,
+            Vote.products_id,
+            QuestionRound.winner_product_id,
+            QuestionRound.is_draw
+        )
+        .join(Vote, Vote.question_rounds_id == QuestionRound.id)
+        .filter(
+            Vote.users_id == current_user.id,
+            QuestionRound.is_locked == True,
+            QuestionRound.updated_at >= today_start_utc,
+            QuestionRound.updated_at < today_end_utc
+        )
+        .distinct(QuestionRound.id)
+        .all()
+    )
+
+    won = lost = tie = 0
+
+    for r in rounds:
+        if r.is_draw:
+            tie += 1
+        elif r.products_id == r.winner_product_id:
+            won += 1
+        else:
+            lost += 1
+
+    results_out = won + lost + tie
+
+    return {
+        "joined": joined,
+        "resultsOut": results_out,
+        "won": won,
+        "lost": lost,
+        "tie": tie
+    }
+
+# @router.get("/active-users", tags=["votes"])
+# def get_active_users(
+#     db: Session = Depends(get_db)
+# ):
+#     today = date.today()
+#     yesterday = today - timedelta(days=1)
+
+#     today_count = db.query(
+#         func.count(distinct(Vote.users_id))
+#     ).filter(
+#         Vote.created_at >= today,
+#         Vote.created_at < today + timedelta(days=1)
+#     ).scalar()
+
+#     yesterday_count = db.query(
+#         func.count(distinct(Vote.users_id))
+#     ).filter(
+#         Vote.created_at >= yesterday,
+#         Vote.created_at < today
+#     ).scalar()
+
+#     return {
+#         "today": today_count,
+#         "yesterday": yesterday_count
+#     }
