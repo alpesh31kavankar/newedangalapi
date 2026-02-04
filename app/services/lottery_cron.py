@@ -71,7 +71,7 @@ def perform_daily_lottery():
             SELECT :lottery_id, t.token_id, t.users_id, :now_ist
             FROM tokens t
             WHERE t.source IN (
-                'C_referral','claim','C_referral_bonus',
+                'C_referral','round_win','C_referral_bonus',
                 'C_spin','monthly_reward','daily_lucky_draw'
             )
             AND t.created_at >= :start_utc

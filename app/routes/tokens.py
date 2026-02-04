@@ -184,7 +184,7 @@ def get_winning_tokens(
 ):
     """
     Fetch all today's W tokens for the logged-in user (IST-safe):
-    - claim
+    - round_win
     - referral
     - daily_lucky_draw
     - C_spin
@@ -215,7 +215,7 @@ def get_winning_tokens(
         .filter(
             Token.users_id == current_user.id,
             Token.token_type == "W",
-            Token.source == "claim",
+            Token.source == "round_win",
             Token.created_at >= start_utc,
             Token.created_at < end_utc
         )
