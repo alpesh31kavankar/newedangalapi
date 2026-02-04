@@ -166,7 +166,7 @@ def startup_event():
     perform_daily_participant_lottery,
     trigger="cron",
     hour=22,
-    minute=29,
+    minute=27,
     id="participant_lottery_cron",
     replace_existing=True,
     timezone=ist

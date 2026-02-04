@@ -87,7 +87,7 @@ def perform_daily_lottery():
         # -----------------------------
         # 5️⃣ Pick winner (exclude last 8 days from BOTH lotteries)
         # -----------------------------
-        last_8_days = today_ist - timedelta(days=12)
+        last_8_days = today_ist - timedelta(days=30)
 
         db.execute(text("""
             INSERT INTO lottery_winner (lotteries_id, users_id, token_id, created_at)
@@ -110,7 +110,7 @@ def perform_daily_lottery():
                 FROM participant_lottery_winner pw
                 JOIN participant_lotteries pl ON pl.id = pw.lottery_id
                 WHERE pl.lottery_date >= :last_8_days
-                    AND pl.lottery_date < :today_ist
+                    AND pl.lottery_date <= :today_ist
             )
 
             ORDER BY RANDOM()
