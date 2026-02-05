@@ -148,20 +148,16 @@ ist = pytz.timezone("Asia/Kolkata")
 def startup_event():
     # Schedule generate_question_rounds to run every 1 minute
     scheduler.add_job(generate_question_rounds, "interval", minutes=1)
-    scheduler.add_job(finalize_rounds, "interval", minutes=1)
-      # new job: run daily lottery at 20:00 (8 PM server time)
-     # ✅ DAILY gift rotation at 00:00 IST
-    # scheduler.add_job(
-    #     rotate_daily_gift,
-    #     trigger="cron",
-    #     hour=0,
-    #     minute=0,
-    #     timezone=ist,
-    #     id="rotate_daily_gift_cron",
-    #     replace_existing=True
-    # )
-    scheduler.add_job(perform_daily_lottery, "cron", hour=22, minute=30, timezone=ist)
-    scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18, timezone=ist)
+    # scheduler.add_job(finalize_rounds, "interval", minutes=1)
+    scheduler.add_job(
+    finalize_rounds,
+    trigger="cron",
+    hour=22,
+    minute=00,
+    timezone=ist,
+    id="finalize_rounds_cron",
+    replace_existing=True
+)
     scheduler.add_job(
     perform_daily_participant_lottery,
     trigger="cron",
@@ -171,6 +167,9 @@ def startup_event():
     replace_existing=True,
     timezone=ist
 )
+    scheduler.add_job(perform_daily_lottery, "cron", hour=22, minute=30, timezone=ist)
+    scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18, timezone=ist)
+ 
     start_leaderboard_scheduler()
     scheduler.start()
    
