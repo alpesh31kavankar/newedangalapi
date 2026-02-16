@@ -96,30 +96,48 @@ def perform_daily_participant_lottery():
         last_8_days = today_ist - timedelta(days=30)
 
         db.execute(text("""
+            WITH eligible AS (
+                SELECT ple.lottery_id, ple.users_id, ple.token_id
+                FROM participant_lottery_entries ple
+                WHERE ple.lottery_id = :lottery_id
+
+                -- ❌ Exclude PARTICIPANT winners (last 8 days)
+                AND ple.users_id NOT IN (
+                    SELECT pw.users_id
+                    FROM participant_lottery_winner pw
+                    JOIN participant_lotteries pl ON pl.id = pw.lottery_id
+                    WHERE pl.lottery_date >= :last_8_days
+                    AND pl.lottery_date < :today_ist
+                )
+
+                -- ❌ Exclude DAILY lottery winners (last 8 days)
+                AND ple.users_id NOT IN (
+                    SELECT lw.users_id
+                    FROM lottery_winner lw
+                    JOIN lotteries l ON l.id = lw.lotteries_id
+                    WHERE l.lottery_date >= :last_8_days
+                    AND l.lottery_date < :today_ist
+                )
+            ),
+
+            fallback AS (
+                -- All participants for this lottery
+                SELECT ple.lottery_id, ple.users_id, ple.token_id
+                FROM participant_lottery_entries ple
+                WHERE ple.lottery_id = :lottery_id
+            ),
+
+            final_pool AS (
+                SELECT * FROM eligible
+                UNION ALL
+                SELECT * FROM fallback
+                WHERE NOT EXISTS (SELECT 1 FROM eligible)
+            )
+
             INSERT INTO participant_lottery_winner
                 (lottery_id, users_id, token_id, created_at)
-            SELECT ple.lottery_id, ple.users_id, ple.token_id, :now_ist
-            FROM participant_lottery_entries ple
-            WHERE ple.lottery_id = :lottery_id
-
-            -- ❌ Exclude PARTICIPANT lottery winners (last 8 days)
-            AND ple.users_id NOT IN (
-                SELECT DISTINCT pw.users_id
-                FROM participant_lottery_winner pw
-                JOIN participant_lotteries pl ON pl.id = pw.lottery_id
-                WHERE pl.lottery_date >= :last_8_days
-                    AND pl.lottery_date < :today_ist
-            )
-
-            -- ❌ Exclude DAILY lottery winners (last 8 days)
-            AND ple.users_id NOT IN (
-                SELECT DISTINCT lw.users_id
-                FROM lottery_winner lw
-                JOIN lotteries l ON l.id = lw.lotteries_id
-                WHERE l.lottery_date >= :last_8_days
-                    AND l.lottery_date < :today_ist
-            )
-
+            SELECT lottery_id, users_id, token_id, :now_ist
+            FROM final_pool
             ORDER BY RANDOM()
             LIMIT 1
             ON CONFLICT (lottery_id) DO NOTHING
@@ -129,6 +147,42 @@ def perform_daily_participant_lottery():
             "last_8_days": last_8_days,
             "today_ist": today_ist
         })
+
+
+        # db.execute(text("""
+        #     INSERT INTO participant_lottery_winner
+        #         (lottery_id, users_id, token_id, created_at)
+        #     SELECT ple.lottery_id, ple.users_id, ple.token_id, :now_ist
+        #     FROM participant_lottery_entries ple
+        #     WHERE ple.lottery_id = :lottery_id
+
+        #     -- ❌ Exclude PARTICIPANT lottery winners (last 8 days)
+        #     AND ple.users_id NOT IN (
+        #         SELECT DISTINCT pw.users_id
+        #         FROM participant_lottery_winner pw
+        #         JOIN participant_lotteries pl ON pl.id = pw.lottery_id
+        #         WHERE pl.lottery_date >= :last_8_days
+        #             AND pl.lottery_date < :today_ist
+        #     )
+
+        #     -- ❌ Exclude DAILY lottery winners (last 8 days)
+        #     AND ple.users_id NOT IN (
+        #         SELECT DISTINCT lw.users_id
+        #         FROM lottery_winner lw
+        #         JOIN lotteries l ON l.id = lw.lotteries_id
+        #         WHERE l.lottery_date >= :last_8_days
+        #             AND l.lottery_date < :today_ist
+        #     )
+
+        #     ORDER BY RANDOM()
+        #     LIMIT 1
+        #     ON CONFLICT (lottery_id) DO NOTHING
+        # """), {
+        #     "lottery_id": lottery_id,
+        #     "now_ist": now_ist,
+        #     "last_8_days": last_8_days,
+        #     "today_ist": today_ist
+        # })
 
 
         # -----------------------------
