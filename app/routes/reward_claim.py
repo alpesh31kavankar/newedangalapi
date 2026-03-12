@@ -9,6 +9,8 @@ from ..models.participant_lottery import ParticipantLottery
 from ..models.p_gift import PGift
 from ..models.lottery_winner import LotteryWinner
 from ..models.participant_lottery_winner import ParticipantLotteryWinner
+from app.services.email import send_reward_claim_email
+from ..models.user import User
 
 router = APIRouter(prefix="/reward", tags=["Reward Claims"])
 
@@ -37,10 +39,62 @@ def get_claim_details(
 
     return {"lottery": lottery, "gift": gift}
 
-
-# Submit a reward claim (winning / participant)
 @router.post("/submit-claim", response_model=RewardClaimResponse)
 def submit_claim(request: RewardClaimRequest, db: Session = Depends(get_db)):
+
+    # Check if already claimed
+    existing = db.query(RewardClaim).filter(
+        RewardClaim.user_id == request.user_id,
+        RewardClaim.lottery_id == request.lottery_id,
+        RewardClaim.claim_type == request.claim_type
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{request.claim_type.capitalize()} reward already claimed"
+        )
+
+    # Insert claim
+    claim = RewardClaim(
+        user_id=request.user_id,
+        lottery_id=request.lottery_id,
+        gift_id=request.gift_id,
+        postal_code=request.postal_code,
+        contact_no=request.contact_no,
+        address=request.address,
+        claim_type=request.claim_type
+    )
+
+    db.add(claim)
+    db.commit()
+    db.refresh(claim)
+
+    # -------------------------
+    # Get user and gift details
+    # -------------------------
+    user = db.query(User).filter(User.id == request.user_id).first()
+
+    gift = db.query(Gift).filter(Gift.id == request.gift_id).first()
+
+    # -------------------------
+    # Send Email
+    # -------------------------
+    if user and gift:
+        send_reward_claim_email(
+            user.email,
+            user.username,
+            gift.name,
+            request.lottery_id,
+            request.address,
+            request.postal_code,
+            request.contact_no
+        )
+
+    return {"message": f"{request.claim_type.capitalize()} claim submitted successfully"}
+# Submit a reward claim (winning / participant)
+# @router.post("/submit-claim", response_model=RewardClaimResponse)
+# def submit_claim(request: RewardClaimRequest, db: Session = Depends(get_db)):
     # Check if already claimed
     existing = db.query(RewardClaim).filter(
         RewardClaim.user_id == request.user_id,

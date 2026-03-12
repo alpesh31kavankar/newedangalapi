@@ -35,6 +35,8 @@ from app.routes import categories, products, gifts, users, question_round ,email
 from .routes import leaderboard
 from app.routes.spin_routes import router as spin_router
 from app.routes import lottery_result
+from app.routes import blog
+from app.routes import ai_agent
 from app.routes import reward_claim
 from app.routes import review
 from app.routes import ticket_report_routes , product_sur_que,product_sur_resp
@@ -56,6 +58,7 @@ from app.services.rounds_cron import generate_question_rounds
 from app.services.finalize_rounds_cron import finalize_rounds
 from app.services.lottery_cron import perform_daily_lottery
 from app.services.participant_lottery_cron import perform_daily_participant_lottery
+from app.services.ai_blog_agent_runner import run_ai_blog_agent
 # ------------------------------
 # Create all tables (SQLAlchemy will only create missing tables)
 # ------------------------------
@@ -130,6 +133,9 @@ app.include_router(product_sur_resp.router)
 app.include_router(main_categories.router)
 app.include_router(category_vote_reason.router)
 app.include_router(opinion_router)
+app.include_router(blog.router)
+
+app.include_router(ai_agent.router)
 
 print(app.routes)
 for route in app.routes:
@@ -167,6 +173,15 @@ def startup_event():
     replace_existing=True,
     timezone=ist
 )
+#     scheduler.add_job(
+#     run_ai_blog_agent,
+#     trigger="cron",
+#     hour=11,
+#     minute=48,
+#     timezone=ist,
+#     id="ai_blog_agent_cron",
+#     replace_existing=True
+# )
     scheduler.add_job(perform_daily_lottery, "cron", hour=22, minute=30, timezone=ist)
     scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18, timezone=ist)
  

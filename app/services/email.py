@@ -49,3 +49,55 @@ def send_email(to_email: str, subject: str, body: str):
             server.send_message(msg)
     except Exception as e:
         print("Error sending email:", e)
+
+
+def send_reward_claim_email(
+    to_email: str,
+    username: str,
+    reward_name: str,
+    lottery_id: int,
+    address: str,
+    postal_code: str,
+    contact_no: str
+):
+
+    body = f"""
+Hello {username},
+
+Congratulations! 🎉
+
+You have successfully submitted your reward claim on the Edangal platform.
+
+Your reward details are as follows:
+
+Reward: {reward_name}
+Lottery ID: {lottery_id}
+
+Delivery Details
+---------------------------
+Address:
+{address}
+
+Postal Code: {postal_code}
+Contact Number: {contact_no}
+Email: {to_email}
+---------------------------
+
+⚠️ Action Required
+
+Please reply with "CONFIRMED" if the above details are correct.
+
+If any details need correction, please reply with the updated information.
+
+Once confirmed, we will proceed with dispatch through our delivery partner.
+
+Thank you for participating in Edangal.
+
+Best wishes for upcoming lucky draws!
+
+Regards  
+Edangal Team
+www.edangal.com
+"""
+
+    send_email(to_email, "🎉 Edangal Reward Claim Confirmation", body)

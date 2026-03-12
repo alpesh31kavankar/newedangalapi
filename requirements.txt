@@ -27,3 +27,5 @@ secure-smtplib
 gunicorn
 
 google-auth==2.34.0
+
+google-generativeai
