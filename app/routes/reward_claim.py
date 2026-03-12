@@ -88,7 +88,8 @@ def submit_claim(request: RewardClaimRequest, db: Session = Depends(get_db)):
             request.lottery_id,
             request.address,
             request.postal_code,
-            request.contact_no
+            request.contact_no,
+            request.claim_type
         )
 
     return {"message": f"{request.claim_type.capitalize()} claim submitted successfully"}

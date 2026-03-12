@@ -55,49 +55,58 @@ def send_reward_claim_email(
     to_email: str,
     username: str,
     reward_name: str,
-    lottery_id: int,
+    token: str,
     address: str,
     postal_code: str,
-    contact_no: str
+    contact_no: str,
+    claim_type: str
 ):
 
+    if claim_type == "winning":
+        category = "Winner reward category"
+    else:
+        category = "Participation reward category"
+
+    subject = f"Congratulations {username}! 🎉 You are a Winner on Edangal"
+
     body = f"""
-Hello {username},
+Subject: Congratulations {username}! 🎉 You are a Winner on Edangal
 
-Congratulations! 🎉
+Dear {username},
 
-You have successfully submitted your reward claim on the Edangal platform.
+Congratulations 🎉
 
-Your reward details are as follows:
+You have been selected as a winner on the Edangal platform under the {category}.
+Your gift is ready to be dispatched.
 
-Reward: {reward_name}
-Lottery ID: {lottery_id}
+Please confirm the following details:
 
-Delivery Details
----------------------------
-Address:
+Gift: {reward_name}
+Token: {token}
+
+Delivery Address:
 {address}
 
-Postal Code: {postal_code}
-Contact Number: {contact_no}
+PIN - {postal_code}
+
+Contact: {contact_no}
 Email: {to_email}
----------------------------
 
-⚠️ Action Required
+🔔 Action Required
+Kindly reply with "CONFIRMED" if all details are correct.
 
-Please reply with "CONFIRMED" if the above details are correct.
-
-If any details need correction, please reply with the updated information.
+For any corrections, please mention the updated information in your reply.
 
 Once confirmed, we will proceed with dispatch through our delivery partner.
 
-Thank you for participating in Edangal.
-
+Thank you for being a valued member of Edangal.
 Best wishes for upcoming lucky draws!
 
-Regards  
-Edangal Team
-www.edangal.com
+Warm regards,
+Team Edangal
+
+🌐 www.edangal.com
+📧 gift@edangal.com
 """
 
-    send_email(to_email, "🎉 Edangal Reward Claim Confirmation", body)
+    send_email(to_email, subject, body)
