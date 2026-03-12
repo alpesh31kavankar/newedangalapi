@@ -9,6 +9,8 @@ from email.mime.text import MIMEText
 SENDER_EMAIL = "aaswacontact@gmail.com"     # your Gmail address
 APP_PASSWORD = "gnjy cotv stwo lsla"    
 
+
+
 def send_activation_email(to_email: str, activation_link: str):
     body = f"""
     Hello!
@@ -82,7 +84,6 @@ Your gift is ready to be dispatched.
 Please confirm the following details:
 
 Gift: {reward_name}
-Token: {token}
 
 Delivery Address:
 {address}
