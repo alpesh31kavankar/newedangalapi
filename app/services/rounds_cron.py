@@ -13,7 +13,7 @@ from ..models.main_category import MainCategory
 import pytz
 
 ACTIVE_START_HOUR = 1
-ACTIVE_END_HOUR = 22
+ACTIVE_END_HOUR = 23
 
 def generate_question_rounds():
     db: Session = SessionLocal()

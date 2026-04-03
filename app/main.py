@@ -158,8 +158,8 @@ def startup_event():
     scheduler.add_job(
     finalize_rounds,
     trigger="cron",
-    hour=22,
-    minute=00,
+    hour=23,
+    minute=30,
     timezone=ist,
     id="finalize_rounds_cron",
     replace_existing=True
@@ -167,8 +167,8 @@ def startup_event():
     scheduler.add_job(
     perform_daily_participant_lottery,
     trigger="cron",
-    hour=22,
-    minute=28,
+    hour=23,
+    minute=48,
     id="participant_lottery_cron",
     replace_existing=True,
     timezone=ist
@@ -182,7 +182,7 @@ def startup_event():
 #     id="ai_blog_agent_cron",
 #     replace_existing=True
 # )
-    scheduler.add_job(perform_daily_lottery, "cron", hour=22, minute=30, timezone=ist)
+    scheduler.add_job(perform_daily_lottery, "cron", hour=23, minute=50, timezone=ist)
     scheduler.add_job(pick_daily_question, 'cron', hour=1, minute=18, timezone=ist)
  
     start_leaderboard_scheduler()
